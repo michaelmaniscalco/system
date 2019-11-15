@@ -22,8 +22,6 @@ for directory_name in sub_directories:
 
 if build_test == '1':
     test_env  = env.Clone();
-    test_env.Append(LINKFLAGS = Split('-z origin'))
-    test_env.Append(RPATH = [test_env.Literal(os.path.join('\\$$ORIGIN', os.pardir, 'lib')), test_env.Literal(os.path.join('\\$$ORIGIN', os.pardir, '../lib'))])
     test_env.SConscript('test/SConscript', {'env' : test_env, 'install_dir' : install_dir})
 
 
@@ -33,7 +31,5 @@ if build_test == '1':
 
 if build_executable == '1':
     executable_env  = env.Clone();
-    executable_env.Append(LINKFLAGS = Split('-z origin'))
-    executable_env.Append(RPATH = executable_env.Literal(os.path.join('\\$$ORIGIN', os.pardir, 'lib')))
     executable_env.SConscript('executable/SConscript', {'env' : executable_env, 'install_dir' : install_dir})
 

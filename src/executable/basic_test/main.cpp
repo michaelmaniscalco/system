@@ -53,6 +53,11 @@ int main
 
     // invoke the contract
     workContract->exercise();
-    
+
+    // wait for a moment to ensure that the worker threads start before the main thread exits.
+    // otherwise it is possible for the main thread to exit before the worker threads even get started
+    // and we won't get our output to console.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
     return 0;
 }

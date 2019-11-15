@@ -18,9 +18,9 @@ common_compiler_defines = [
 # common compiler flags
 #===============================================================================
 
-common_compiler_flags = ['-std=c++17', '-rdynamic', '-pipe', '-pthread', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-variable']
+common_compiler_flags = ['-std=c++17', '-pipe', '-pthread', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-variable']
 debug_compiler_flags = ['-g', '-O0', '-Dforce_inline = inline ', '-Dforce_no_inline ']
-release_compiler_flags = ['-O2', '-g', '-march=native', '-fno-stack-protector', '-funroll-loops', '-funsafe-loop-optimizations',
+release_compiler_flags = ['-O2', '-g', '-march=native', '-fno-stack-protector', '-funroll-loops',
         '-Dforce_inline=__attribute__((always_inline)) inline ', '-Dforce_no_inline=__attribute__((noinline)) ']
 
 #===============================================================================
