@@ -49,11 +49,16 @@ namespace maniscalco::system
 
         bool get_service_requested() const;
         
+        static constexpr std::uint64_t get_capacity()
+        {
+            return capacity;
+        }
+
     protected:
 
     private:
 
-        static std::uint64_t constexpr capacity = 256;
+        static std::uint64_t constexpr capacity = 1024;
         using contract_state_flags = std::array<std::atomic<std::uint64_t>, 2 * ((capacity + 63) / 64)>;
 
         work_contract_group

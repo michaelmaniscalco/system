@@ -27,7 +27,7 @@ namespace
 
         struct configuration_type
         {
-            std::size_t                         bufferSize_{64};
+            std::size_t                         bufferSize_{1024};
             std::experimental::filesystem::path filePath_;
             char                                target_;
 
@@ -98,7 +98,7 @@ namespace
             auto workContract = workContractGroup.create_contract(workContractConfiguration);
             if (!workContract)
             {
-                std::cerr << "file to create work contract" << std::endl;
+                std::cerr << "Failed to create work contract" << std::endl;
                 return false;
             }
             workContract_ = std::move(*workContract);
@@ -203,9 +203,10 @@ namespace
             });
 
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
+    auto num_threads = std::thread::hardware_concurrency();
     maniscalco::system::thread_pool workerThreadPool(
             {
-                std::thread::hardware_concurrency(),
+                num_threads,
                 [&]()
                 {
                     // wait until the there is work to do rather than spin.
@@ -227,6 +228,8 @@ int main
 {
     // load the files as specified by the input args
     auto filePaths = load_file_paths(argv[2]);
+    if (filePaths.size() > workContractGroup->get_capacity())
+        filePaths.resize(workContractGroup->get_capacity());
 
     // process all files in the input directory path using asynchronous tasks thanks to
     // our work_contract_group!
@@ -242,7 +245,15 @@ int main
                 {
                     ++completionCount;
                 };
-        fileCharCounters.push_back(file_char_counter::create(*workContractGroup, fileCharCounterConfiguration));
+        fileCharCounterConfiguration.beginHandler_ = [&](auto const & fileCharCounter)
+                {
+                    //std::cout << "Starting file " << fileCharCounter.get_file_path() << std::endl;
+                };
+        auto fileCharCounter = file_char_counter::create(*workContractGroup, fileCharCounterConfiguration);
+        if (fileCharCounter)
+            fileCharCounters.push_back(std::move(fileCharCounter));
+        else
+            ++completionCount; // failed to create the object. count as completed fro benefit of main thread exit.
     }
 
     // wait for all work to complete
@@ -250,11 +261,11 @@ int main
         std::this_thread::yield();
 
     // summary of results
-    std::cout << "processed " << fileCharCounters.size() << " files" << std::endl;
     for (auto const & fileCharCounter : fileCharCounters)
     {
         std::cout << fileCharCounter->get_file_path() << " processed: '" << fileCharCounter->get_target() << "' occured " << 
                 fileCharCounter->get_count() << " times in file" << std::endl;
     }
+    std::cout << "processed " << fileCharCounters.size() << " files concurrently using " << num_threads << " worker threads." << std::endl;
     return 0;
 }

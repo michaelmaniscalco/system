@@ -43,7 +43,7 @@ bool maniscalco::system::work_contract_group::get_service_requested
 }
 
 
-
+/*
 //======================================================================================================================
 template <>
 inline void maniscalco::system::work_contract_group::service_contract_by_index<32>
@@ -107,9 +107,9 @@ void maniscalco::system::work_contract_group::service_contracts
     for (auto & flags : sharedState_->contractStateFlags_) 
         service_contract_by_index<0>(&sharedState_->contracts_[n << 5], flags);
 }
+*/
 
 
-/*
 //=====================================================================================================================
 void maniscalco::system::work_contract_group::service_contracts
 (
@@ -151,7 +151,7 @@ void maniscalco::system::work_contract_group::service_contracts
         currentContract = endContract;
     }
 }
-*/
+
 
 
 /*
