@@ -20,6 +20,8 @@ namespace maniscalco::system
             end_contract_handler    endContractHandler_;
         };
         
+        work_contract() = default;
+        
         work_contract
         (
             work_contract &&

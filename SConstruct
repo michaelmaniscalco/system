@@ -27,7 +27,7 @@ release_compiler_flags = ['-O2', '-g', '-march=native', '-fno-stack-protector', 
 # library dependencies
 #===============================================================================
 
-common_library_dependencies = ['pthread']
+common_library_dependencies = ['pthread', 'stdc++fs']
 debug_library_dependencies = []
 release_library_dependencies = []
 
