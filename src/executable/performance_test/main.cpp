@@ -1,5 +1,4 @@
 #include <cstddef>
-#include <library/system.h>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -9,7 +8,7 @@
 #include <mutex>
 #include <cstdint>
 
-#include "./thread_pool.h"
+#include <library/system.h>
 
 
 //#define PERIODIC_RENEW_CONTRACT // tests thread safety for creating/destroying contracts during testing
@@ -19,8 +18,8 @@
 namespace
 {
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
-    static auto constexpr num_worker_threads = 3;
-    static auto constexpr num_producer_threads = 3;
+    static auto constexpr num_worker_threads = 2;
+    static auto constexpr num_producer_threads = 2;
     std::size_t constexpr loop_count = 16; 
     
     #ifdef SLEEP_WHILE_NO_WORK
@@ -103,10 +102,9 @@ std::int32_t main
 
     // create really simple thread pool and basic worker thread function
     // which services are work contract group.
-    auto workerThreadPool = std::make_shared<maniscalco::thread_pool>(num_worker_threads, []
-            (
-                // worker thread function
-            )
+    maniscalco::system::thread_pool::configuration_type threadPoolConfiguration;
+    threadPoolConfiguration.threadCount_ = num_worker_threads;
+    threadPoolConfiguration.workerThreadFunction_ = []()
             {
                 #ifdef SLEEP_WHILE_NO_WORK
                     std::unique_lock uniqueLock(_mutex);
@@ -115,7 +113,8 @@ std::int32_t main
                 #else
                     _workContractGroup->service_contracts();
                 #endif
-            });
+            };
+    maniscalco::system::thread_pool workerThreadPool(threadPoolConfiguration);
 
     // repeat test 'loop_count' times       
     for (std::size_t k = 0; k < loop_count; ++k)
@@ -161,7 +160,7 @@ std::int32_t main
         std::cout << "Average tasks per thread/sec: " <<(int) ((total / num_producer_threads) / test_duration_in_sec) << std::endl;
     }
 
-    workerThreadPool.reset();
+    workerThreadPool.stop();
     _workContractGroup.reset();
 
     return 0;

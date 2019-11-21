@@ -24,7 +24,8 @@ target_specific_configurations = []
 target_source_files = [
         './system.cpp',
         './thread/work_contract_group.cpp',
-        './thread/work_contract.cpp']
+        './thread/work_contract.cpp',
+        './thread/thread_pool.cpp']
 
 
 #===============================================================================

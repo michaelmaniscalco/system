@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <chrono>
 #include "./cpu_id.h"
+#include "./thread/thread_pool.h"
 #include "./thread/work_contract_group.h"
 
 
