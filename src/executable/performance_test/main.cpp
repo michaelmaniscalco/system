@@ -13,8 +13,8 @@
 
 //#define PERIODIC_RENEW_CONTRACT // tests thread safety for creating/destroying contracts during testing
 //#define DELAY_DURING_TASK // make task take 1 millisecond to complete - shows that cpu is not spinning in some tests
-#define SLEEP_WHILE_NO_WORK // causes threads to sleep while no work is present
-//#define TEST_LOCKLESS_QUEUE
+#define SLEEP_WHILE_NO_WORK // causes threads to sleep while no work is present (be a good citizen)
+//#define TEST_LOCKLESS_QUEUE // measure performance using a modern lockless queue rather than work contracts (for comparision)
 
 namespace
 {
