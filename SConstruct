@@ -55,6 +55,7 @@ release_include_paths = [build_dir + 'release/src/']
 #===============================================================================
 
 common_env = Environment()
+common_env["CXX"] = "clang++"
 common_env.Append(CPPDEFINES = common_compiler_defines)
 common_env.Append(CXXCOMSTR = 'compiling [$SOURCE]')
 common_env.Append(SHCXXCOMSTR = 'compiling [$SOURCE]')

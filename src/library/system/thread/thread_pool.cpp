@@ -34,7 +34,8 @@ maniscalco::system::thread_pool::~thread_pool
 {
     terminateFlag_ = true;
     for (auto & thread : threads_)
-        thread.join();
+        if (thread.joinable())
+            thread.join();
 }
 
 
@@ -45,4 +46,19 @@ void maniscalco::system::thread_pool::stop
 )
 {
     terminateFlag_ = true;
+}
+
+
+//=====================================================================================================================
+void maniscalco::system::thread_pool::stop
+(
+    // issue terminate to all worker threads. waits for all threads to terminate if waitForTerminationComplete is true
+    bool waitForTerminationComplete
+)
+{
+    terminateFlag_ = true;
+    if (waitForTerminationComplete)
+        for (auto & thread : threads_)
+            if (thread.joinable())
+                thread.join();
 }

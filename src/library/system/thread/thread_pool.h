@@ -32,6 +32,8 @@ namespace maniscalco::system
 
         void stop();
 
+        void stop(bool);
+
     private:
     
         std::vector<std::thread>    threads_;

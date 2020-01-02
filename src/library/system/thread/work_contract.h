@@ -56,3 +56,12 @@ namespace maniscalco::system
     };
     
 } // namespace maniscalco::system
+
+        
+//===================================================================================================================== 
+inline void maniscalco::system::work_contract::exercise
+(
+)
+{
+    contractHandler_();
+}

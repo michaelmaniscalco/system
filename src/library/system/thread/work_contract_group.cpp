@@ -43,73 +43,6 @@ bool maniscalco::system::work_contract_group::get_service_requested
 }
 
 
-/*
-//======================================================================================================================
-template <>
-inline void maniscalco::system::work_contract_group::service_contract_by_index<32>
-(
-    // experiment with loop unrolling through specialization
-    contract_info *,
-    std::atomic<std::uint64_t> &
-)
-{
-}
-
-
-//======================================================================================================================
-template <std::size_t N>
-inline void maniscalco::system::work_contract_group::service_contract_by_index
-(
-    // experiment with loop unrolling through specialization
-    contract_info * currentContract,
-    std::atomic<std::uint64_t> & flags
-)
-{
-    static constexpr auto need_service_bit = (0x01ull << (N << 1));
-    static constexpr auto is_being_serviced_bit = (0x02ull << (N << 1));
-    static constexpr auto bit_mask = (need_service_bit | is_being_serviced_bit);
-
-    auto expected = flags.load();
-    if (need_service_bit > expected)
-        return;
-
-    while ((expected & bit_mask) == need_service_bit)
-    {
-        auto const desired = ((expected & ~need_service_bit) | is_being_serviced_bit);
-        if (flags.compare_exchange_strong(expected, desired))
-        {
-            if (currentContract->contractStatus_ == contract_info::contract_status::unsubscribed)
-            {
-                // contract has ended
-                if (currentContract->endContractHandler_)
-                    currentContract->endContractHandler_();
-                currentContract->contractStatus_ = contract_info::contract_status::none;
-            }
-            else
-            {
-                currentContract->contractHandler_();
-            }
-            flags &= ~is_being_serviced_bit;
-            break;
-        }
-    }
-    service_contract_by_index<N + 1>(currentContract + 1, flags);
-}
-
-
-//=====================================================================================================================
-void maniscalco::system::work_contract_group::service_contracts
-(
-    // an experimental variation of this function which uses template specialization for loop unrolling
-) 
-{
-    auto n = 0ull;
-    for (auto & flags : sharedState_->contractStateFlags_) 
-        service_contract_by_index<0>(&sharedState_->contracts_[n << 5], flags);
-}
-*/
-
-
 //=====================================================================================================================
 void maniscalco::system::work_contract_group::service_contracts
 (
@@ -138,6 +71,7 @@ void maniscalco::system::work_contract_group::service_contracts
                     }
                     else
                     {
+                        // contract needs servicing
                         currentContract->contractHandler_();
                     }
                     flags &= ~is_being_serviced_bit;
@@ -152,52 +86,6 @@ void maniscalco::system::work_contract_group::service_contracts
     }
 }
 
-
-
-/*
-//=====================================================================================================================
-void maniscalco::system::work_contract_group::service_contracts
-(
-) 
-{
-    auto currentContract = sharedState_->contracts_.data();
-    for (auto & flags : sharedState_->contractStateFlags_) 
-    {
-        std::uint64_t need_service_bit = 0x01;
-        auto endContract = currentContract + 32;
-        while ((need_service_bit <= flags) && (currentContract < endContract)) 
-        {
-            if (flags & need_service_bit)
-            {
-                std::uint64_t is_being_serviced_bit = (need_service_bit << 1);
-                auto current = (flags & ~(need_service_bit | is_being_serviced_bit));
-                auto expected = (current | need_service_bit);
-                auto desired = (current | is_being_serviced_bit);
-                if (flags.compare_exchange_strong(expected, desired)) 
-                {
-                    if (currentContract->contractStatus_ == contract_info::contract_status::unsubscribed)
-                    {
-                        // contract has ended
-                        if (currentContract->endContractHandler_)
-                            currentContract->endContractHandler_();
-                        currentContract->contractStatus_ = contract_info::contract_status::none;
-                    }
-                    else
-                    {
-                        currentContract->contractHandler_();
-                    }
-                    flags &= ~is_being_serviced_bit;
-                }
-            }
-            need_service_bit <<= 2;
-            ++currentContract;
-        }
-        currentContract = endContract;
-    }
-}
-*/
-
-    
 
 //=====================================================================================================================
 auto maniscalco::system::work_contract_group::create_contract

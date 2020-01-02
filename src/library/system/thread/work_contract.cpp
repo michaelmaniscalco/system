@@ -49,13 +49,3 @@ maniscalco::system::work_contract::~work_contract
     if (endContractHandler_)
         endContractHandler_();
 }
-
-        
-//===================================================================================================================== 
-void maniscalco::system::work_contract::exercise
-(
-)
-{
-    if (contractHandler_)
-        contractHandler_();
-}

@@ -95,15 +95,6 @@ namespace maniscalco::system
 
         std::shared_ptr<shared_state>               sharedState_;
 
-
-        template <std::size_t> 
-        void service_contract_by_index
-        (    
-            contract_info *,
-            std::atomic<std::uint64_t> &
-        );
-
     }; // class work_contract_group
 
 } // namespace maniscalco::system
-

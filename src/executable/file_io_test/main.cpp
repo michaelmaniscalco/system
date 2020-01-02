@@ -1,20 +1,21 @@
-#include <cstddef>
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <memory>
 #include <condition_variable>
-#include <mutex>
-#include <functional>
+#include <cstddef>
 #include <experimental/filesystem>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <vector>
 
-#include <library/system.h>
 #include <include/invoke_from_weak_ptr.h>
+#include <library/system.h>
+
 
 
 namespace
 {
-        
+
     // simple class that reads file in blocks and counts number of times that the target char appears within the file.
     // uses work_contract to do the work in asynchronous tasks.
     class file_char_counter : 
@@ -196,7 +197,7 @@ namespace
     
     // create a work_contract_group - very simple
     auto workContractGroup = maniscalco::system::work_contract_group::create(
-            [&]()
+            []()
             {
                 // whenever a contract is excercised we use our condition variable to 'wake' a thread.
                 conditionVariable.notify_one();
@@ -207,7 +208,7 @@ namespace
     maniscalco::system::thread_pool workerThreadPool(
             {
                 num_threads,
-                [&]()
+                []()
                 {
                     // wait until the there is work to do rather than spin.
                     std::unique_lock uniqueLock(mutex);
