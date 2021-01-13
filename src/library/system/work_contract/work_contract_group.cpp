@@ -24,14 +24,6 @@ maniscalco::system::work_contract_group::work_contract_group
 
 
 //=====================================================================================================================
-maniscalco::system::work_contract_group::~work_contract_group
-(
-) 
-{
-}
-
-
-//=====================================================================================================================
 bool maniscalco::system::work_contract_group::get_service_requested
 (
 ) const

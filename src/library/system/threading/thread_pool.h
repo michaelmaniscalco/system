@@ -17,6 +17,12 @@ namespace maniscalco::system
         using thread_pool_ready_handler = std::function<void()>;
         using worker_thread_function = std::function<void()>;
         
+        enum class stop_mode : std::uint32_t
+        {
+            blocking,
+            async
+        };
+
         struct configuration_type
         {
             std::size_t                 threadCount_;
@@ -32,7 +38,7 @@ namespace maniscalco::system
 
         void stop();
 
-        void stop(bool);
+        void stop(stop_mode);
 
     private:
     

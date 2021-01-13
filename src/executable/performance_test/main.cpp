@@ -10,122 +10,112 @@
 
 #include <library/system.h>
 
-
-//#define PERIODIC_RENEW_CONTRACT // tests thread safety for creating/destroying contracts during testing
-//#define DELAY_DURING_TASK // make task take 1 millisecond to complete - shows that cpu is not spinning in some tests
-#define SLEEP_WHILE_NO_WORK // causes threads to sleep while no work is present (be a good citizen)
-//#define TEST_LOCKLESS_QUEUE // measure performance using a modern lockless queue rather than work contracts (for comparision)
+//#define SLEEP_WHILE_NO_WORK     // causes threads to sleep while no work is present (be a good citizen)
+//#define USE_MINIMAL_WORK_TASK   // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
 
 namespace
 {
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
-    static auto constexpr num_worker_threads = 3;
-    static auto constexpr num_producer_threads = 3;
-    std::size_t constexpr loop_count = 16; 
+    static auto constexpr num_worker_threads = 1;
+    static auto constexpr num_work_contracts = 128;
+    std::size_t constexpr loop_count = 10; 
     
     #ifdef SLEEP_WHILE_NO_WORK
-        std::condition_variable     _conditionVariable;
-        std::mutex                  _mutex;
-        auto _workContractGroup = maniscalco::system::work_contract_group::create
-        (
-            []()
-            {
-                _conditionVariable.notify_one();
-            }
-        );
+        std::atomic<std::size_t> _workCount{0};
+        auto _workContractGroup = maniscalco::system::work_contract_group::create([](){++_workCount;});
     #else
-        auto _workContractGroup = maniscalco::system::work_contract_group::create
-        (
-            nullptr
-        );
+        auto _workContractGroup = maniscalco::system::work_contract_group::create(nullptr);
     #endif
 }
 
 
-#include "./blocking_concurrent_queue.h"
-
-
-namespace test_queue
-{
-    moodycamel::BlockingConcurrentQueue<std::size_t volatile *> concurrentQueue(256, num_producer_threads, num_producer_threads);
-
-    //======================================================================================================================
-    void producer_thread_function
-    (
-        std::atomic<bool> & startFlag,
-        std::atomic<bool> const & stopFlag,
-        std::atomic<std::size_t> & activeCount,
-        std::size_t volatile & taskCount,
-        std::size_t cpuId
-    )
-    {
-    //    maniscalco::system::set_cpu_affinity(cpuId);
-        // wait until all producer threads are ready before we let any begin the test
-        if (++activeCount == num_producer_threads)
-            startFlag = true;
-        while (!startFlag)
-            ;
-
-        while (!stopFlag)
-        {
-            auto nextTaskCount = (taskCount + 1);
-            concurrentQueue.enqueue(&taskCount);
-            while ((taskCount != nextTaskCount) && (!stopFlag))
-                ;
-        }
-    }
-
-
-} // namespace test_queue
-
-
-
 //======================================================================================================================
-void producer_thread_function
+std::size_t producer_thread_function
 (
-    std::atomic<bool> & startFlag,
-    std::atomic<bool> const & stopFlag,
-    std::atomic<std::size_t> & activeCount,
-    std::size_t volatile & taskCount,
-    std::size_t cpuId
 )
 {
-    //maniscalco::system::set_cpu_affinity(cpuId);
+    std::atomic<bool> stopFlag = false;
+    std::size_t result = 0;
 
-    maniscalco::system::work_contract_group::contract_configuration_type workContract;
-    workContract.contractHandler_ = [&](){++taskCount;};
-    workContract.endContractHandler_ = nullptr;
-    auto contract = _workContractGroup->create_contract(workContract);
-    if (!contract)
+    try
     {
-        std::cout << "Failed to get contract to thread pool contract group" << std::endl;
-        throw std::runtime_error("");
-    }
-
-    // wait until all producer threads are ready before we let any begin the test
-    if (++activeCount == num_producer_threads)
-        startFlag = true;
-    while (!startFlag)
-        ;
-
-    while (!stopFlag)
-    {
-        std::size_t nextTaskCount = (taskCount + 1);
-        contract->exercise();
-        while ((taskCount != nextTaskCount) && (!stopFlag))
-            ;
-        #ifdef PERIODIC_RENEW_CONTRACT
-            if ((taskCount % 1000) == 0)
-            {
-                contract = _workContractGroup->create_contract(workContract);
-                if (!contract)
+        // construct some work to do which has some heft to it
+        #ifdef USE_MINIMAL_WORK_TASK
+            auto workTask = [](){return 1;};
+        #else
+            auto workTask = []()
                 {
-                    std::cout << "Failed to get contract from work contract group" << std::endl;
-                    throw std::runtime_error("");
-                }
-            }
+                    auto total = 0;
+                    for (auto i = 0; i < 20; ++i)
+                    {
+                        std::string s = "5677467676457";
+                        s += std::to_string(i);
+                        total += std::atoi(s.c_str());
+                    }
+                    return (total + (total == 0));
+                };
         #endif
+
+        // this thread will manage many work contracts
+        struct work_contract_info
+        {
+            maniscalco::system::work_contract workContract_;
+            std::size_t volatile count_{0};
+            bool volatile stopped_{false};
+        };
+
+        std::array<work_contract_info, num_work_contracts> workContracts;
+        std::array<std::size_t volatile, num_work_contracts> contractCount;  
+        auto contractIndex = 0;
+        for (auto & workContract : workContracts)
+            workContract.workContract_ = std::move(*_workContractGroup->create_contract(
+                {
+                    .contractHandler_ = [&, workTask]()
+                    {
+                        static std::atomic<int> n{0};
+                        thread_local static bool b = [&]()
+                                {
+                                    std::this_thread::sleep_for(std::chrono::microseconds(n++));
+                                    return true;
+                                }();
+                        
+                        if (stopFlag)
+                        {
+                            // once the global stop flag is set - stopping the test - we exit this work contract
+                            workContract.workContract_.surrender();
+                            workContract.stopped_ = true; 
+                        }
+                        else
+                        {
+                            // we have a worker thread honoring our work contract. let's make it do some work for us.
+                            workContract.count_ += (workTask() != 0);
+                            // invoke the contract again so another thread will come back and do some more work
+                            workContract.workContract_.invoke();
+                        }
+                    },
+                }));
+
+        // inovke each work contract to start them up - they will self re-invoke in the work contract for the purposes of this test.
+        for (auto & workContract : workContracts)
+            workContract.workContract_();
+
+        // sleep while the work contracts keep being repeatedly invoked ...
+        std::this_thread::sleep_for(test_duration);
+        // terminate work contracts
+        stopFlag = true;
+        // wait for each contract to ack the stop and add up the total times which the contract was exercised
+        for (auto & workContract : workContracts)
+        {
+            while (!workContract.stopped_)
+                std::this_thread::yield();
+            result += workContract.count_;
+        }
     }
+    catch (std::exception const & exception)
+    {
+        std::cerr << exception.what();
+    }
+    return result;
 }
 
 
@@ -136,102 +126,43 @@ std::int32_t main
     char const **
 )
 {
-    // for testing purposes we get this main thread off of the cores we will be using for timing tests
-    //maniscalco::system::set_cpu_affinity(std::thread::hardware_concurrency() - 1);
-
     // create really simple thread pool and basic worker thread function
     // which services are work contract group.
     maniscalco::system::thread_pool::configuration_type threadPoolConfiguration;
     threadPoolConfiguration.threadCount_ = num_worker_threads;
     threadPoolConfiguration.workerThreadFunction_ = []()
             {
-                #ifdef TEST_LOCKLESS_QUEUE
-                    #ifdef DELAY_DURING_TASK
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    #endif
-                    std::size_t volatile * value;
-                    test_queue::concurrentQueue.wait_dequeue(value);
-                    value[0]++;
+                #ifdef SLEEP_WHILE_NO_WORK
+                    auto spin = 8192;
+                    auto expectedWorkCount = _workCount.load();
+                    while ((spin--) && (expectedWorkCount > 0))
+                    {
+                        if (_workCount.compare_exchange_weak(expectedWorkCount, expectedWorkCount - 1))
+                            _workContractGroup->service_contracts();
+                    }
+                    if (expectedWorkCount == 0)
+                        std::this_thread::yield();
                 #else
-                    #ifdef SLEEP_WHILE_NO_WORK
-                        auto spin = 8192;
-                        while (spin--)
-                        {
-                        if (_workContractGroup->get_service_requested())
-                        {
-                            #ifdef DELAY_DURING_TASK
-                                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                            #endif
-                            _workContractGroup->service_contracts();
-                            return;
-                        }
-                        }
-                        std::unique_lock uniqueLock(_mutex);
-                        if (_conditionVariable.wait_for(uniqueLock, std::chrono::microseconds(10), [](){return _workContractGroup->get_service_requested();}))
-                        {
-                            #ifdef DELAY_DURING_TASK
-                                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                            #endif
-                            _workContractGroup->service_contracts();
-                        }
-                    #else
-                        _workContractGroup->service_contracts();
-                    #endif
+                    _workContractGroup->service_contracts();
                 #endif
             };
     maniscalco::system::thread_pool workerThreadPool(threadPoolConfiguration);
-
     // repeat test 'loop_count' times       
     for (std::size_t k = 0; k < loop_count; ++k)
     {
         std::cout << "test iteration " << (k + 1) << " of " << loop_count << ": " << std::flush;
-        std::atomic<bool> stopFlag = false;
-        std::atomic<bool> producerThreadsReadyFlag = false;
-        std::atomic<std::size_t> activeProducerThreadCount(0);
-        std::thread producer_threads[num_producer_threads];
-        std::array<std::size_t volatile, num_producer_threads> taskCount;
-        for (auto & e : taskCount)
-            e = 0;
-
-        // create producer threads
-        std::size_t n = 0;
-        std::size_t cpuId = num_worker_threads * 2;
-        for (auto & producer_thread : producer_threads)
-        {
-            #ifdef TEST_LOCKLESS_QUEUE
-                producer_thread = std::thread(&test_queue::producer_thread_function, std::ref(producerThreadsReadyFlag), 
-                    std::cref(stopFlag), std::ref(activeProducerThreadCount), std::ref(taskCount[n++]), cpuId);
-            #else
-                producer_thread = std::thread(&producer_thread_function, std::ref(producerThreadsReadyFlag), 
-                    std::cref(stopFlag), std::ref(activeProducerThreadCount), std::ref(taskCount[n++]), cpuId);
-            #endif
-            cpuId += 2;
-        }
-
-        // wait for all threads to be ready before we begin the test (for timing purposes).
-        while (!producerThreadsReadyFlag)
-            ;
         auto startTime = std::chrono::system_clock::now();
-        std::this_thread::sleep_for(test_duration);
-
-        // terminate threads
-        stopFlag = true;
+        auto taskCount = producer_thread_function();
         auto stopTime = std::chrono::system_clock::now();
-
-        for (auto & producer_thread : producer_threads)
-            producer_thread.join();
-        
-        std::size_t total = 0;
-        for (auto & n : taskCount)
-            total += n;
-            
         auto elapsedTime = (stopTime - startTime);
         auto test_duration_in_sec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(elapsedTime).count() / std::nano::den;
-        std::cout << "Average tasks per thread/sec: " <<(int) ((total / num_producer_threads) / test_duration_in_sec) << std::endl;
+
+        std::cout << "Total tasks = " << taskCount << ", tasks per sec = " << (int)(taskCount / test_duration_in_sec) << 
+                ", tasks per thread per sec = " << (int)((taskCount / test_duration_in_sec) / num_worker_threads) << std::endl;
     }
 
     bool const waitForTerminationComplete = true;
-    workerThreadPool.stop(waitForTerminationComplete);
+    workerThreadPool.stop(maniscalco::system::thread_pool::stop_mode::blocking);
     _workContractGroup.reset();
 
     return 0;

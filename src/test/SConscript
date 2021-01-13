@@ -1,8 +1,0 @@
-Import('env', 'install_dir')
-
-sub_dir = []
-
-for dir_name in sub_dir:
-    env.SConscript('%s/SConscript' % dir_name, {'env' : env, 'install_dir' : install_dir + '/bin/test/'})
-
-

@@ -34,7 +34,11 @@ namespace maniscalco::system
                   
         ~work_contract();
         
-        void exercise();
+        void operator()();
+
+        void invoke();
+        
+        void surrender();
         
     protected:
     
@@ -59,7 +63,16 @@ namespace maniscalco::system
 
         
 //===================================================================================================================== 
-inline void maniscalco::system::work_contract::exercise
+inline void maniscalco::system::work_contract::invoke
+(
+)
+{
+    contractHandler_();
+}
+
+
+//===================================================================================================================== 
+inline void maniscalco::system::work_contract::operator()
 (
 )
 {

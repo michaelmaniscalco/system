@@ -23,7 +23,6 @@ namespace maniscalco::system
     public:
         
         using contract_service_handler = std::function<void()>;
-    
         using contract_handler = std::function<void()>;
         using end_contract_handler = std::function<void()>;
         
@@ -38,7 +37,7 @@ namespace maniscalco::system
             contract_service_handler
         );
 
-        ~work_contract_group();
+        ~work_contract_group() = default;
 
         std::optional<work_contract> create_contract
         (
@@ -58,7 +57,7 @@ namespace maniscalco::system
 
     private:
 
-        static std::uint64_t constexpr capacity = 1024;
+        static std::uint64_t constexpr capacity = (1 << 16);
         using contract_state_flags = std::array<std::atomic<std::uint64_t>, 2 * ((capacity + 63) / 64)>;
 
         work_contract_group

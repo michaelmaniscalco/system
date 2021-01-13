@@ -1,6 +1,6 @@
 #include <condition_variable>
 #include <cstddef>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -29,7 +29,7 @@ namespace
         struct configuration_type
         {
             std::size_t                         bufferSize_{1024};
-            std::experimental::filesystem::path filePath_;
+            std::filesystem::path filePath_;
             char                                target_;
 
             begin_handler                       beginHandler_;
@@ -103,7 +103,7 @@ namespace
                 return false;
             }
             workContract_ = std::move(*workContract);
-            workContract_.exercise();
+            workContract_.invoke();
             return true;
         }
 
@@ -127,7 +127,7 @@ namespace
             
             if (!inputFileStream_.eof())
             {
-                workContract_.exercise(); // more to do so come back again!
+                workContract_.invoke(); // more to do so come back again!
             }
             else
             {
@@ -163,13 +163,13 @@ namespace
     auto load_file_paths
     (
         // quick and dirty function for recursively collecting file paths from specified directory
-        std::experimental::filesystem::path directoryPath
-    ) -> std::vector<std::experimental::filesystem::path>
+        std::filesystem::path directoryPath
+    ) -> std::vector<std::filesystem::path>
     {
-        std::vector<std::experimental::filesystem::path> results;
-        for (auto const & filePath : std::experimental::filesystem::directory_iterator(directoryPath))
+        std::vector<std::filesystem::path> results;
+        for (auto const & filePath : std::filesystem::directory_iterator(directoryPath))
         {
-            if (std::experimental::filesystem::is_directory(filePath))
+            if (std::filesystem::is_directory(filePath))
             {
                 auto subResults = load_file_paths(filePath);
                 results.insert(results.end(), subResults.begin(), subResults.end());
@@ -211,9 +211,12 @@ namespace
                 []()
                 {
                     // wait until the there is work to do rather than spin.
-                    std::unique_lock uniqueLock(mutex);
-                    std::chrono::microseconds waitTime(10);
-                    if (conditionVariable.wait_for(uniqueLock, waitTime, [&](){return workContractGroup->get_service_requested();}))
+                    bool doWork = false;
+                    {
+                        std::unique_lock uniqueLock(mutex);
+                        doWork = (conditionVariable.wait_for(uniqueLock, std::chrono::microseconds(10), [](){return workContractGroup->get_service_requested();}));
+                    }
+                    if (doWork)
                         workContractGroup->service_contracts();
                 }
             });

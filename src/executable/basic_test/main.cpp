@@ -16,48 +16,36 @@ int main
     char const **
 )
 {
-    std::condition_variable     conditionVariable;
-    std::mutex                  mutex;
-    
+    std::atomic<std::size_t> workCount{0};
     // create a work_contract_group - very simple
-    auto workContractGroup = maniscalco::system::work_contract_group::create(
-            [&]()
-            {
-                // whenever a contract is excercised we use our condition variable to 'wake' a thread.
-                conditionVariable.notify_one();
-            });
+    auto workContractGroup = maniscalco::system::work_contract_group::create([&](){++workCount;});
 
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
-    maniscalco::system::thread_pool::configuration_type threadPoolConfiguration;
-    threadPoolConfiguration.threadCount_ = 4;
-    threadPoolConfiguration.workerThreadFunction_ = [&]()
+    maniscalco::system::thread_pool workerThreadPool(   
             {
-                // wait until the there is work to do rather than spin.
-                std::unique_lock uniqueLock(mutex);
-                std::chrono::microseconds waitTime(10);
-                if (conditionVariable.wait_for(uniqueLock, waitTime, [&](){return workContractGroup->get_service_requested();}))
-                    workContractGroup->service_contracts();
-            };
-    maniscalco::system::thread_pool workerThreadPool(threadPoolConfiguration);
+                .threadCount_ = 4,
+                .workerThreadFunction_ = [&]()
+                        {
+                            // wait until the there is work to do rather than spin.
+                            auto expectedWorkCount = workCount.load();
+                            if ((expectedWorkCount > 0) && (workCount.compare_exchange_weak(expectedWorkCount, expectedWorkCount - 1)))
+                                workContractGroup->service_contracts();
+                            else
+                                std::this_thread::yield();
+                        }
+            });
 
     // create a work_contract
-    maniscalco::system::work_contract_group::contract_configuration_type workContractConfiguration;
-    workContractConfiguration.contractHandler_ = [&](){std::cout << "Work contract exercised" << std::endl;};
-    workContractConfiguration.endContractHandler_ = [&](){std::cout << "Work contract expired" << std::endl;};
-    auto workContract = workContractGroup->create_contract(workContractConfiguration);
-    if (!workContract)
-    {
-        std::cout << "Failed to get contract" << std::endl;
-        throw std::runtime_error("");
-    }
+    bool volatile done = false;
+    auto workContract = workContractGroup->create_contract(
+            {
+                .contractHandler_ = [&done](){std::cout << "Work contract exercised" << std::endl; done = true;},
+                .endContractHandler_ = [](){std::cout << "Work contract expired" << std::endl;}
+            });
 
     // invoke the contract - one of the worker threads will then service the contract asyncrhonously 
-    workContract->exercise();
-
-    // wait for a moment to ensure that the worker threads start before the main thread exits.
-    // otherwise it is possible for the main thread to exit before the worker threads even get started
-    // and we won't get our output to console.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
+    workContract->invoke();
+    while (!done)
+        ;
     return 0;
 }

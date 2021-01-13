@@ -1,9 +1,7 @@
 #include "./thread_pool.h"
 
-#include <atomic>
 
-
-//=====================================================================================================================
+//=============================================================================
 maniscalco::system::thread_pool::thread_pool
 (
     configuration_type const & configuration
@@ -27,7 +25,7 @@ maniscalco::system::thread_pool::thread_pool
 }
     
 
-//=====================================================================================================================
+//=============================================================================
 maniscalco::system::thread_pool::~thread_pool
 (
 )
@@ -39,25 +37,26 @@ maniscalco::system::thread_pool::~thread_pool
 }
 
 
-//=====================================================================================================================
+//=============================================================================
 void maniscalco::system::thread_pool::stop
 (
     // issue terminate to all worker threads
 )
 {
-    terminateFlag_ = true;
+    stop(stop_mode::async);
 }
 
 
-//=====================================================================================================================
+//=============================================================================
 void maniscalco::system::thread_pool::stop
 (
-    // issue terminate to all worker threads. waits for all threads to terminate if waitForTerminationComplete is true
-    bool waitForTerminationComplete
+    // issue terminate to all worker threads. 
+    // waits for all threads to terminate if waitForTerminationComplete is true
+    stop_mode stopMode
 )
 {
     terminateFlag_ = true;
-    if (waitForTerminationComplete)
+    if (stopMode == stop_mode::blocking)
         for (auto & thread : threads_)
             if (thread.joinable())
                 thread.join();

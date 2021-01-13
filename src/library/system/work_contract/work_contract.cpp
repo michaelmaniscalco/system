@@ -49,3 +49,12 @@ maniscalco::system::work_contract::~work_contract
     if (endContractHandler_)
         endContractHandler_();
 }
+
+
+//=====================================================================================================================
+void maniscalco::system::work_contract::surrender
+(
+)
+{
+    *this = std::move(work_contract());
+}
