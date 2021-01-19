@@ -40,6 +40,7 @@ void maniscalco::system::work_contract_group::service_contracts
 (
 ) 
 {
+    std::exception_ptr currentException;
     auto currentContract = sharedState_->contracts_.data();
     for (auto & flags : sharedState_->contractStateFlags_) 
     {
@@ -58,15 +59,33 @@ void maniscalco::system::work_contract_group::service_contracts
                     {
                         // contract has ended
                         if (currentContract->endContractHandler_)
-                            currentContract->endContractHandler_();
+                        {
+                            try
+                            {
+                                currentContract->endContractHandler_();
+                            }
+                            catch (...)
+                            {
+                                currentException = std::current_exception();
+                            }
+                        }
                         currentContract->contractStatus_ = contract_info::contract_status::none;
                     }
                     else
                     {
                         // contract needs servicing
-                        currentContract->contractHandler_();
+                        try
+                        {
+                            currentContract->contractHandler_();
+                        }
+                        catch (...)
+                        {
+                            currentException = std::current_exception();
+                        }
                     }
                     flags &= ~is_being_serviced_bit;
+                    if (currentException)
+                        std::rethrow_exception(currentException);
                     break;
                 }
             }

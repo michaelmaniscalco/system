@@ -4,6 +4,15 @@
 //===================================================================================================================== 
 maniscalco::system::work_contract::work_contract
 (
+):
+    contractHandler_([](){})
+{
+}
+
+
+//===================================================================================================================== 
+maniscalco::system::work_contract::work_contract
+(
     configuration_type configuration
 ):
     endContractHandler_(configuration.endContractHandler_),
@@ -57,4 +66,13 @@ void maniscalco::system::work_contract::surrender
 )
 {
     *this = std::move(work_contract());
+}
+
+
+//=============================================================================
+bool maniscalco::system::work_contract::is_valid
+(
+) const
+{
+    return (bool)(contractHandler_);
 }
