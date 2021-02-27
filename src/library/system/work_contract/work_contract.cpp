@@ -1,11 +1,16 @@
 #include "./work_contract.h"
 
+namespace
+{
+    static std::atomic<std::uint64_t> dummy;
+}
+
 
 //===================================================================================================================== 
 maniscalco::system::work_contract::work_contract
 (
 ):
-    contractHandler_([](){})
+    flags_(&dummy)
 {
 }
 
@@ -15,8 +20,9 @@ maniscalco::system::work_contract::work_contract
 (
     configuration_type configuration
 ):
-    endContractHandler_(configuration.endContractHandler_),
-    contractHandler_(configuration.contractHandler_)
+    invokeFlags_(configuration.invokeFlags_),
+    surrenderFlags_(configuration.surrenderFlags_),
+    flags_(configuration.flags_)
 {
 }
 
@@ -26,11 +32,13 @@ maniscalco::system::work_contract::work_contract
 (
     work_contract && other
 ):
-    endContractHandler_(std::move(other.endContractHandler_)),
-    contractHandler_(std::move(other.contractHandler_))
+    invokeFlags_(other.invokeFlags_),
+    surrenderFlags_(other.surrenderFlags_),
+    flags_(other.flags_)
 {
-    other.endContractHandler_ = nullptr;
-    other.contractHandler_ = nullptr;
+    other.flags_ = &dummy;
+    other.invokeFlags_ = 0;
+    other.surrenderFlags_ = 0;
 }
 
       
@@ -40,12 +48,11 @@ auto maniscalco::system::work_contract::operator =
     work_contract && other
 ) -> work_contract &
 {
-    if (endContractHandler_)
-        endContractHandler_();
-    endContractHandler_ = std::move(other.endContractHandler_);
-    other.endContractHandler_ = nullptr;
-    contractHandler_ = std::move(other.contractHandler_);
-    other.contractHandler_ = nullptr;
+    *flags_ |= surrenderFlags_;
+    invokeFlags_ = other.invokeFlags_;
+    surrenderFlags_ = other.surrenderFlags_;
+    flags_ = other.flags_;
+    other.flags_ = &dummy;
     return *this;
 }
         
@@ -55,8 +62,7 @@ maniscalco::system::work_contract::~work_contract
 (
 )
 {
-    if (endContractHandler_)
-        endContractHandler_();
+    *flags_ |= surrenderFlags_;
 }
 
 
@@ -74,5 +80,5 @@ bool maniscalco::system::work_contract::is_valid
 (
 ) const
 {
-    return (bool)(contractHandler_);
+    return (flags_ != &dummy);
 }

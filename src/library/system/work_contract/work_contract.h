@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <atomic>
 
 
 namespace maniscalco::system
@@ -11,13 +12,11 @@ namespace maniscalco::system
     {
     public:
     
-        using contract_handler = std::function<void()>;
-        using end_contract_handler = std::function<void()>;
-        
         struct configuration_type
         {
-            contract_handler        contractHandler_;
-            end_contract_handler    endContractHandler_;
+            std::uint64_t                   invokeFlags_;
+            std::uint64_t                   surrenderFlags_;
+            std::atomic<std::uint64_t> *    flags_;
         };
         
         work_contract();
@@ -55,10 +54,12 @@ namespace maniscalco::system
     
         work_contract(work_contract const &) = delete;
         work_contract & operator = (work_contract const &) = delete;
-    
-        end_contract_handler    endContractHandler_;
+
+        std::uint64_t                   invokeFlags_{0};
         
-        contract_handler        contractHandler_;
+        std::uint64_t                   surrenderFlags_{0};
+
+        std::atomic<std::uint64_t> *    flags_{nullptr};
     };
     
 } // namespace maniscalco::system
@@ -69,7 +70,7 @@ inline void maniscalco::system::work_contract::invoke
 (
 )
 {
-    contractHandler_();
+    *flags_ |= invokeFlags_;
 }
 
 
@@ -78,5 +79,5 @@ inline void maniscalco::system::work_contract::operator()
 (
 )
 {
-    contractHandler_();
+    *flags_ |= invokeFlags_;
 }

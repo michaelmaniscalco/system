@@ -13,10 +13,12 @@ add_library(threading
 
 target_link_libraries(threading ${CMAKE_THREAD_LIBS_INIT})
 
+
 target_include_directories(threading
     PUBLIC
         $<BUILD_INTERFACE:${_threading_include_dir}>
         $<INSTALL_INTERFACE:include/threading>
+    PRIVATE
+        "${_type_safe_include_dir}"
 )
 
-target_compile_features(threading PUBLIC cxx_std_20)

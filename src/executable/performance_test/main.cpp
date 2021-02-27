@@ -16,7 +16,7 @@
 namespace
 {
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
-    static auto constexpr num_worker_threads = 1;
+    static auto constexpr num_worker_threads = 6;
     static auto constexpr num_work_contracts = 128;
     std::size_t constexpr loop_count = 10; 
     
@@ -101,6 +101,7 @@ std::size_t producer_thread_function
 
         // sleep while the work contracts keep being repeatedly invoked ...
         std::this_thread::sleep_for(test_duration);
+
         // terminate work contracts
         stopFlag = true;
         // wait for each contract to ack the stop and add up the total times which the contract was exercised
@@ -132,6 +133,7 @@ std::int32_t main
     threadPoolConfiguration.threadCount_ = num_worker_threads;
     threadPoolConfiguration.workerThreadFunction_ = []()
             {
+             //   static bool once = [](){std::this_thread::sleep_for(std::chrono::seconds(50000)); return true;}();
                 #ifdef SLEEP_WHILE_NO_WORK
                     auto spin = 8192;
                     auto expectedWorkCount = _workCount.load();

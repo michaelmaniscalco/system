@@ -40,12 +40,24 @@ int main
     auto workContract = workContractGroup->create_contract(
             {
                 .contractHandler_ = [&done](){std::cout << "Work contract exercised" << std::endl; done = true;},
-                .endContractHandler_ = [](){std::cout << "Work contract expired" << std::endl;}
+                .endContractHandler_ = [&done](){std::cout << "Work contract expired" << std::endl; done = true;}
             });
 
+    auto workContract2 = workContractGroup->create_contract(
+            {
+                .contractHandler_ = [&done](){std::cout << "Work contract 2 exercised" << std::endl; done = true;},
+                .endContractHandler_ = [&done](){std::cout << "Work contract 2 expired" << std::endl; done = true;}
+            });
+
+
     // invoke the contract - one of the worker threads will then service the contract asyncrhonously 
-    workContract->invoke();
+    workContract2->invoke();
     while (!done)
         ;
+    done = false;
+    workContract2->surrender();
+    while (!done)
+        ;
+
     return 0;
 }

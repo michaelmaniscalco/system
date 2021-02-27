@@ -24,6 +24,22 @@ endif()
 
 option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" OFF)
 
+include(FetchContent)
+
+# type_safe
+FetchContent_Declare(
+    type_safe
+    GIT_REPOSITORY https://github.com/foonathan/type_safe.git
+    GIT_TAG main
+    SOURCE_DIR        "${CMAKE_BINARY_DIR}/type_safe-src"
+    BINARY_DIR        "${CMAKE_BINARY_DIR}/type_safe-build"
+    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
+    INSTALL_COMMAND   ""
+)
+FetchContent_MakeAvailable(type_safe)
+FetchContent_GetProperties(type_safe)
+set(_type_safe_include_dir "${CMAKE_BINARY_DIR}/type_safe-src/include/")
+
 add_subdirectory(src)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

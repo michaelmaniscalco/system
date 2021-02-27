@@ -58,7 +58,42 @@ namespace maniscalco::system
     private:
 
         static std::uint64_t constexpr capacity = (1 << 16);
-        using contract_state_flags = std::array<std::atomic<std::uint64_t>, 2 * ((capacity + 63) / 64)>;
+
+        using element_type = std::uint64_t;
+        static auto constexpr bits_per_byte = 8;
+        static auto constexpr bits_per_element_type = (sizeof(element_type) * bits_per_byte);
+        static auto constexpr bits_per_contract = 4; // must be power of two
+        static auto constexpr contracts_per_element_type = (bits_per_element_type / bits_per_contract);
+        using contract_state_flags = std::array<std::atomic<element_type>, (capacity + contracts_per_element_type - 1) / contracts_per_element_type>;
+
+
+        struct contract_info
+        {
+            std::function<void()>               contractHandler_;
+            std::function<void()>               endContractHandler_;
+        };
+
+        struct shared_state
+        {
+            contract_state_flags                    contractStateFlags_;
+            contract_service_handler                contractRequiresServiceHandler_;
+            std::array<contract_info, capacity>     contracts_;
+        };
+
+        template <std::size_t N>
+        void service_contract
+        (
+            std::atomic<element_type> &,
+            contract_info *
+        );
+
+        template <std::size_t ... N>
+        void service_contracts
+        (
+            std::atomic<element_type> &,
+            contract_info *,
+            std::index_sequence<N ...>
+        );
 
         work_contract_group
         (
@@ -70,27 +105,6 @@ namespace maniscalco::system
             std::uint64_t
         );
 
-        struct contract_info
-        {
-            enum class contract_status : std::uint32_t
-            {
-                none = 0,
-                subscribed = 1,
-                unsubscribed = 2
-            };
-            contract_info():contractStatus_(contract_status::none), contractHandler_(), errorHandler_(), endContractHandler_(){}
-            std::atomic<contract_status>        contractStatus_;
-            work_contract::contract_handler     contractHandler_;
-            std::function<void()>               errorHandler_;
-            work_contract::end_contract_handler endContractHandler_;
-        };
-
-        struct shared_state
-        {
-            contract_state_flags                    contractStateFlags_;
-            contract_service_handler                contractRequiresServiceHandler_;
-            std::array<contract_info, capacity>     contracts_;
-        };
 
         std::shared_ptr<shared_state>               sharedState_;
 
