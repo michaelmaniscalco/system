@@ -1,5 +1,7 @@
 #pragma once
 
+#include "./thread_id.h"
+
 #include <thread>
 #include <vector>
 #include <cstdint>
