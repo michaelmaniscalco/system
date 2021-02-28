@@ -5,21 +5,33 @@
 //=====================================================================================================================
 auto maniscalco::system::work_contract_group::create
 (
-    contract_service_handler contractRequiresServiceHandler
+    configuration const & config
 ) -> std::shared_ptr<work_contract_group> 
 {
-    return std::shared_ptr<work_contract_group>(new work_contract_group(contractRequiresServiceHandler));
+    return std::shared_ptr<work_contract_group>(new work_contract_group(config));
 }
 
 
 //=====================================================================================================================
 maniscalco::system::work_contract_group::work_contract_group
 (
-    contract_service_handler contractRequiresServiceHandler
+    configuration const & config
 ):
-    sharedState_(std::make_shared<shared_state>())
+    sharedState_(std::make_shared<shared_state>(shared_state::configuration{
+                .capacity_ = config.capacity_,
+                .contractRequiresServiceHandler_ = config.contractRequiresServiceHandler_
+            })),
+    capacity_(config.capacity_)
 {
-    sharedState_->contractRequiresServiceHandler_ = contractRequiresServiceHandler;
+}
+
+
+//=====================================================================================================================
+std::size_t maniscalco::system::work_contract_group::get_capacity
+(
+) const
+{
+    return capacity_;
 }
 
 
@@ -136,7 +148,7 @@ auto maniscalco::system::work_contract_group::create_contract
 
     std::uint64_t contractIndex = 0;
     bool claimedSlot = false;
-    while (contractIndex < capacity)
+    while (contractIndex < capacity_)
     {
         auto & element = sharedState_->contractStateFlags_[contractIndex / contracts_per_element_type];
         auto bitMask = ((1ull << bits_per_contract) - 1);

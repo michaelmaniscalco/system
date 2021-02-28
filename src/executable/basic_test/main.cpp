@@ -18,7 +18,8 @@ int main
 {
     std::atomic<std::size_t> workCount{0};
     // create a work_contract_group - very simple
-    auto workContractGroup = maniscalco::system::work_contract_group::create([&](){++workCount;});
+    auto workContractGroup = maniscalco::system::work_contract_group::create({
+            .contractRequiresServiceHandler_ = [&](){++workCount;}});
 
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     maniscalco::system::thread_pool workerThreadPool(   

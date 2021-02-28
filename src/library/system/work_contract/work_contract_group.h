@@ -10,6 +10,7 @@
 #include <memory>
 #include <atomic>
 #include <utility>
+#include <vector>
 
 #include "./work_contract.h"
 
@@ -26,15 +27,23 @@ namespace maniscalco::system
         using contract_handler = std::function<void()>;
         using end_contract_handler = std::function<void()>;
         
+        static std::uint64_t constexpr default_capacity = (1 << 16);
+
         struct contract_configuration_type
         {
             contract_handler        contractHandler_;
             end_contract_handler    endContractHandler_;
         };
+
+        struct configuration
+        {
+            std::size_t                 capacity_{default_capacity};
+            contract_service_handler    contractRequiresServiceHandler_;
+        };
         
         static std::shared_ptr<work_contract_group> create
         (
-            contract_service_handler
+            configuration const &
         );
 
         ~work_contract_group() = default;
@@ -47,24 +56,16 @@ namespace maniscalco::system
         void service_contracts();
 
         bool get_service_requested() const;
-        
-        static constexpr std::uint64_t get_capacity()
-        {
-            return capacity;
-        }
 
-    protected:
+        std::size_t get_capacity() const;
 
     private:
-
-        static std::uint64_t constexpr capacity = (1 << 16);
 
         using element_type = std::uint64_t;
         static auto constexpr bits_per_byte = 8;
         static auto constexpr bits_per_element_type = (sizeof(element_type) * bits_per_byte);
         static auto constexpr bits_per_contract = 4; // must be power of two
         static auto constexpr contracts_per_element_type = (bits_per_element_type / bits_per_contract);
-        using contract_state_flags = std::array<std::atomic<element_type>, (capacity + contracts_per_element_type - 1) / contracts_per_element_type>;
 
 
         struct contract_info
@@ -75,9 +76,24 @@ namespace maniscalco::system
 
         struct shared_state
         {
-            contract_state_flags                    contractStateFlags_;
+            struct configuration
+            {
+                std::size_t                 capacity_{default_capacity};
+                contract_service_handler    contractRequiresServiceHandler_;
+            };
+
+            shared_state
+            (
+                configuration config
+            ):
+                contractStateFlags_((config.capacity_ + contracts_per_element_type - 1) / contracts_per_element_type),
+                contractRequiresServiceHandler_(config.contractRequiresServiceHandler_),
+                contracts_(config.capacity_)
+            {
+            }
+            std::vector<std::atomic<element_type>>  contractStateFlags_;
             contract_service_handler                contractRequiresServiceHandler_;
-            std::array<contract_info, capacity>     contracts_;
+            std::vector<contract_info>              contracts_;
         };
 
         template <std::size_t N>
@@ -97,7 +113,7 @@ namespace maniscalco::system
 
         work_contract_group
         (
-            contract_service_handler
+            configuration const &
         );
 
         void on_end_contract
@@ -106,8 +122,9 @@ namespace maniscalco::system
         );
 
 
-        std::shared_ptr<shared_state>               sharedState_;
+        std::shared_ptr<shared_state>       sharedState_;
 
+        std::size_t                         capacity_;
     }; // class work_contract_group
 
 } // namespace maniscalco::system

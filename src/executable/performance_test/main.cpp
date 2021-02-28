@@ -24,7 +24,7 @@ namespace
         std::atomic<std::size_t> _workCount{0};
         auto _workContractGroup = maniscalco::system::work_contract_group::create([](){++_workCount;});
     #else
-        auto _workContractGroup = maniscalco::system::work_contract_group::create(nullptr);
+        auto _workContractGroup = maniscalco::system::work_contract_group::create({.capacity_ = num_work_contracts});
     #endif
 }
 
@@ -88,7 +88,7 @@ std::size_t producer_thread_function
                         else
                         {
                             // we have a worker thread honoring our work contract. let's make it do some work for us.
-                            workContract.count_ += (workTask() != 0);
+                            workContract.count_ = workContract.count_ + (workTask() != 0);
                             // invoke the contract again so another thread will come back and do some more work
                             workContract.workContract_.invoke();
                         }

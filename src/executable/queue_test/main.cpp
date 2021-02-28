@@ -152,7 +152,7 @@ int main
 )
 {
     // create a work_contract_group - very simple
-    auto workContractGroup = maniscalco::system::work_contract_group::create(nullptr);
+    auto workContractGroup = maniscalco::system::work_contract_group::create({});
 
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     maniscalco::system::thread_pool workerThreadPool(   

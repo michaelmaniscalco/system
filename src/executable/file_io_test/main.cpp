@@ -196,12 +196,12 @@ namespace
     std::mutex                  mutex;
     
     // create a work_contract_group - very simple
-    auto workContractGroup = maniscalco::system::work_contract_group::create(
-            []()
+    auto workContractGroup = maniscalco::system::work_contract_group::create({
+            .contractRequiresServiceHandler_ = []()
             {
                 // whenever a contract is excercised we use our condition variable to 'wake' a thread.
                 conditionVariable.notify_one();
-            });
+            }});
 
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     auto num_threads = std::thread::hardware_concurrency();
