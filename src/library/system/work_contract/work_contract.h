@@ -17,6 +17,7 @@ namespace maniscalco::system
             std::uint64_t                   invokeFlags_;
             std::uint64_t                   surrenderFlags_;
             std::atomic<std::uint64_t> *    flags_;
+            std::uint64_t                   index_{0};
         };
         
         work_contract();
@@ -54,6 +55,8 @@ namespace maniscalco::system
     
         work_contract(work_contract const &) = delete;
         work_contract & operator = (work_contract const &) = delete;
+
+        std::uint64_t                   index_{0};
 
         std::uint64_t                   invokeFlags_{0};
         

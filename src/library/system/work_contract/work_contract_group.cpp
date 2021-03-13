@@ -138,6 +138,20 @@ void maniscalco::system::work_contract_group::service_contracts
 
 
 //=====================================================================================================================
+bool maniscalco::system::work_contract_group::update_contract
+(
+    work_contract const & workContract,
+    contract_configuration_type const & contractConfiguration
+)
+{
+    auto contractIndex = workContract.index_;
+    sharedState_->contracts_[contractIndex].contractHandler_ = contractConfiguration.contractHandler_;
+    sharedState_->contracts_[contractIndex].endContractHandler_ = contractConfiguration.endContractHandler_ ? contractConfiguration.endContractHandler_ : [](){};
+    return true;
+}
+
+
+//=====================================================================================================================
 auto maniscalco::system::work_contract_group::create_contract
 (
     contract_configuration_type contractConfiguration
@@ -200,5 +214,5 @@ auto maniscalco::system::work_contract_group::create_contract
                     sharedState->contractRequiresServiceHandler_();
             }}) :
             */
-        work_contract({.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = flags});   
+        work_contract({.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = flags, .index_ = contractIndex});   
 }

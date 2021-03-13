@@ -59,6 +59,12 @@ namespace maniscalco::system
 
         std::size_t get_capacity() const;
 
+        bool update_contract
+        (
+            work_contract const &,
+            contract_configuration_type const &
+        );
+
     private:
 
         using element_type = std::uint64_t;

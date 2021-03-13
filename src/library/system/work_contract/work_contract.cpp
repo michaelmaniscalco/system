@@ -22,7 +22,8 @@ maniscalco::system::work_contract::work_contract
 ):
     invokeFlags_(configuration.invokeFlags_),
     surrenderFlags_(configuration.surrenderFlags_),
-    flags_(configuration.flags_)
+    flags_(configuration.flags_),
+    index_(configuration.index_)
 {
 }
 
@@ -34,11 +35,13 @@ maniscalco::system::work_contract::work_contract
 ):
     invokeFlags_(other.invokeFlags_),
     surrenderFlags_(other.surrenderFlags_),
-    flags_(other.flags_)
+    flags_(other.flags_),
+    index_(other.index_)
 {
     other.flags_ = &dummy;
     other.invokeFlags_ = 0;
     other.surrenderFlags_ = 0;
+    other.index_ = -1;
 }
 
       
@@ -51,8 +54,10 @@ auto maniscalco::system::work_contract::operator =
     *flags_ |= surrenderFlags_;
     invokeFlags_ = other.invokeFlags_;
     surrenderFlags_ = other.surrenderFlags_;
+    index_ = other.index_;
     flags_ = other.flags_;
     other.flags_ = &dummy;
+    other.index_ = -1;
     return *this;
 }
         
