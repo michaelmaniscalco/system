@@ -1,5 +1,9 @@
 #include "./work_contract.h"
 
+#include "./work_contract_group.h"
+
+
+
 namespace
 {
     static std::atomic<std::uint64_t> dummy;
@@ -18,12 +22,14 @@ maniscalco::system::work_contract::work_contract
 //===================================================================================================================== 
 maniscalco::system::work_contract::work_contract
 (
+    work_contract_group * workContractGroup,
     configuration_type configuration
 ):
     invokeFlags_(configuration.invokeFlags_),
     surrenderFlags_(configuration.surrenderFlags_),
     flags_(configuration.flags_),
-    index_(configuration.index_)
+    index_(configuration.index_),
+    workContractGroup_(workContractGroup)
 {
 }
 
@@ -36,7 +42,8 @@ maniscalco::system::work_contract::work_contract
     invokeFlags_(other.invokeFlags_),
     surrenderFlags_(other.surrenderFlags_),
     flags_(other.flags_),
-    index_(other.index_)
+    index_(other.index_),
+    workContractGroup_(other.workContractGroup_)
 {
     other.flags_ = &dummy;
     other.invokeFlags_ = 0;
@@ -56,6 +63,7 @@ auto maniscalco::system::work_contract::operator =
     surrenderFlags_ = other.surrenderFlags_;
     index_ = other.index_;
     flags_ = other.flags_;
+    workContractGroup_ = other.workContractGroup_;
     other.flags_ = &dummy;
     other.index_ = -1;
     return *this;
@@ -86,4 +94,14 @@ bool maniscalco::system::work_contract::is_valid
 ) const
 {
     return (flags_ != &dummy);
+}
+
+
+//=============================================================================
+bool maniscalco::system::work_contract::update
+(
+    contract_configuration_type const & config
+)
+{
+    return workContractGroup_->update_contract(*this, config);
 }

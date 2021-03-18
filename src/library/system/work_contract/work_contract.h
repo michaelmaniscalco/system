@@ -8,18 +8,22 @@
 namespace maniscalco::system
 {
 
+    class work_contract_group;
+    
+
     class work_contract final
     {
     public:
-    
-        struct configuration_type
+               
+        using contract_handler = std::function<void()>;
+        using end_contract_handler = std::function<void()>;
+
+        struct contract_configuration_type
         {
-            std::uint64_t                   invokeFlags_;
-            std::uint64_t                   surrenderFlags_;
-            std::atomic<std::uint64_t> *    flags_;
-            std::uint64_t                   index_{0};
+            contract_handler        contractHandler_;
+            end_contract_handler    endContractHandler_;
         };
-        
+
         work_contract();
         
         work_contract
@@ -42,14 +46,26 @@ namespace maniscalco::system
         
         bool is_valid() const;
         
-    protected:
+        bool update
+        (
+            contract_configuration_type const &
+        );
     
     private:
     
         friend class work_contract_group;
-    
+
+        struct configuration_type
+        {
+            std::uint64_t                   invokeFlags_;
+            std::uint64_t                   surrenderFlags_;
+            std::atomic<std::uint64_t> *    flags_;
+            std::uint64_t                   index_{0};
+        };
+
         work_contract
         (
+            work_contract_group *,
             configuration_type
         );
     
@@ -63,6 +79,8 @@ namespace maniscalco::system
         std::uint64_t                   surrenderFlags_{0};
 
         std::atomic<std::uint64_t> *    flags_{nullptr};
+
+        work_contract_group *           workContractGroup_{nullptr};
     };
     
 } // namespace maniscalco::system

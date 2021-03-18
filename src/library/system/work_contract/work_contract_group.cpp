@@ -141,7 +141,7 @@ void maniscalco::system::work_contract_group::service_contracts
 bool maniscalco::system::work_contract_group::update_contract
 (
     work_contract const & workContract,
-    contract_configuration_type const & contractConfiguration
+    work_contract::contract_configuration_type const & contractConfiguration
 )
 {
     auto contractIndex = workContract.index_;
@@ -154,7 +154,7 @@ bool maniscalco::system::work_contract_group::update_contract
 //=====================================================================================================================
 auto maniscalco::system::work_contract_group::create_contract
 (
-    contract_configuration_type contractConfiguration
+    work_contract::contract_configuration_type const & contractConfiguration
 ) -> std::optional<work_contract>
 {
     if (!contractConfiguration.contractHandler_)
@@ -214,5 +214,5 @@ auto maniscalco::system::work_contract_group::create_contract
                     sharedState->contractRequiresServiceHandler_();
             }}) :
             */
-        work_contract({.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = flags, .index_ = contractIndex});   
+        work_contract(this, {.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = flags, .index_ = contractIndex});   
 }

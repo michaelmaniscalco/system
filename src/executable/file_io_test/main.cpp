@@ -89,14 +89,15 @@ namespace
                 return false;
             }
             // create a work contract
-            maniscalco::system::work_contract_group::contract_configuration_type workContractConfiguration;
-            workContractConfiguration.contractHandler_ = [wpThis = this->weak_from_this()] // invoke work contract
-                        (
-                        )
-                        {
-                            maniscalco::invoke_from_weak_ptr(&file_char_counter::process_data, wpThis);
-                        };
-            auto workContract = workContractGroup.create_contract(workContractConfiguration);
+            auto workContract = workContractGroup.create_contract(
+                    {
+                        .contractHandler_ = [wpThis = this->weak_from_this()] // invoke work contract
+                                (
+                                )
+                                {
+                                    maniscalco::invoke_from_weak_ptr(&file_char_counter::process_data, wpThis);
+                                }
+                    });
             if (!workContract)
             {
                 std::cerr << "Failed to create work contract" << std::endl;

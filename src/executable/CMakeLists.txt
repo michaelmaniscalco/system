@@ -1,6 +1,6 @@
 if (WORKCONTRACT_BUILD_DEMO)
     add_subdirectory(basic_test)
     add_subdirectory(performance_test)
-    add_subdirectory(queue_test)
+    #add_subdirectory(queue_test)
     add_subdirectory(file_io_test)
 endif()

@@ -29,12 +29,6 @@ namespace maniscalco::system
         
         static std::uint64_t constexpr default_capacity = (1 << 16);
 
-        struct contract_configuration_type
-        {
-            contract_handler        contractHandler_;
-            end_contract_handler    endContractHandler_;
-        };
-
         struct configuration
         {
             std::size_t                 capacity_{default_capacity};
@@ -50,7 +44,7 @@ namespace maniscalco::system
 
         std::optional<work_contract> create_contract
         (
-            contract_configuration_type
+            work_contract::contract_configuration_type const &
         );
 
         void service_contracts();
@@ -62,7 +56,7 @@ namespace maniscalco::system
         bool update_contract
         (
             work_contract const &,
-            contract_configuration_type const &
+            work_contract::contract_configuration_type const &
         );
 
     private:
