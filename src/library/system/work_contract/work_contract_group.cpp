@@ -140,13 +140,21 @@ void maniscalco::system::work_contract_group::service_contracts
 //=====================================================================================================================
 bool maniscalco::system::work_contract_group::update_contract
 (
-    work_contract const & workContract,
+    work_contract & workContract,
     work_contract::contract_configuration_type const & contractConfiguration
 )
 {
     auto contractIndex = workContract.index_;
-    sharedState_->contracts_[contractIndex].contractHandler_ = contractConfiguration.contractHandler_;
+    sharedState_->contracts_[contractIndex].contractHandler_ = contractConfiguration.contractHandler_ ? contractConfiguration.contractHandler_ : [](){};
     sharedState_->contracts_[contractIndex].endContractHandler_ = contractConfiguration.endContractHandler_ ? contractConfiguration.endContractHandler_ : [](){};
+    if ((contractConfiguration.contractHandler_) || (contractConfiguration.endContractHandler_))
+    {
+        workContract.flags_ = (sharedState_->contractStateFlags_.data() + (contractIndex / contracts_per_element_type));
+    }
+    else
+    {
+        workContract.flags_ = &work_contract::dummyFlags_;
+    }
     return true;
 }
 
@@ -157,9 +165,6 @@ auto maniscalco::system::work_contract_group::create_contract
     work_contract::contract_configuration_type const & contractConfiguration
 ) -> std::optional<work_contract>
 {
-    if (!contractConfiguration.contractHandler_)
-        return std::nullopt; // disallow the nonsensical to prevent the need to test for validity constantly
-
     std::uint64_t contractIndex = 0;
     bool claimedSlot = false;
     while (contractIndex < capacity_)
@@ -182,37 +187,10 @@ auto maniscalco::system::work_contract_group::create_contract
     if (!claimedSlot)
         return std::nullopt; // at capacity
 
-    sharedState_->contracts_[contractIndex].contractHandler_ = contractConfiguration.contractHandler_;
-    sharedState_->contracts_[contractIndex].endContractHandler_ = contractConfiguration.endContractHandler_ ? contractConfiguration.endContractHandler_ : [](){};
-    
     auto shiftToContract = (bits_per_contract * (contractIndex % contracts_per_element_type));
     auto invokeFlags = (0x01ull << shiftToContract);
     auto surrenderFlags = (0x09ull << shiftToContract);
-    auto * flags = (sharedState_->contractStateFlags_.data() + (contractIndex / contracts_per_element_type));
-
-
-    return /*(sharedState_->contractRequiresServiceHandler_) ? 
-        work_contract({ // non optimized version if callback is provided
-            [contractIndex, sharedState = sharedState_] // contract handler
-            (
-            )
-            {
-                auto shiftToContract = (bits_per_contract * (contractIndex % contracts_per_element_type));
-                auto contractServiceFlag = (0x01ull << shiftToContract);
-                auto & element = (sharedState->contractStateFlags_[contractIndex / contracts_per_element_type]);
-                if ((element.fetch_or(contractServiceFlag) & contractServiceFlag) == 0)
-                    sharedState->contractRequiresServiceHandler_();
-            },
-            [contractIndex, sharedState = sharedState_] // unsubscribe handler
-            (
-            ) mutable
-            {
-                auto shiftToContract = (bits_per_contract * (contractIndex % contracts_per_element_type));
-                auto contractServiceFlag = (0x09ull << shiftToContract);
-                auto & element = (sharedState->contractStateFlags_[contractIndex / contracts_per_element_type]);
-                if ((element.fetch_or(contractServiceFlag) & contractServiceFlag) == 0)
-                    sharedState->contractRequiresServiceHandler_();
-            }}) :
-            */
-        work_contract(this, {.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = flags, .index_ = contractIndex});   
+    work_contract workContract(this, {.invokeFlags_ = invokeFlags, .surrenderFlags_ = surrenderFlags, .flags_ = &work_contract::dummyFlags_, .index_ = contractIndex}); 
+    update_contract(workContract, contractConfiguration);
+    return workContract; 
 }

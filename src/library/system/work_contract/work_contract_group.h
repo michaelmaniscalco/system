@@ -10,7 +10,6 @@
 #include <memory>
 #include <atomic>
 #include <utility>
-#include <vector>
 
 #include "./work_contract.h"
 
@@ -55,7 +54,7 @@ namespace maniscalco::system
 
         bool update_contract
         (
-            work_contract const &,
+            work_contract &,
             work_contract::contract_configuration_type const &
         );
 
@@ -120,7 +119,6 @@ namespace maniscalco::system
         (
             std::uint64_t
         );
-
 
         std::shared_ptr<shared_state>       sharedState_;
 

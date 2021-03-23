@@ -3,18 +3,14 @@
 #include "./work_contract_group.h"
 
 
-
-namespace
-{
-    static std::atomic<std::uint64_t> dummy;
-}
+std::atomic<std::uint64_t> maniscalco::system::work_contract::dummyFlags_;
 
 
 //===================================================================================================================== 
 maniscalco::system::work_contract::work_contract
 (
 ):
-    flags_(&dummy)
+    flags_(&dummyFlags_)
 {
 }
 
@@ -45,7 +41,7 @@ maniscalco::system::work_contract::work_contract
     index_(other.index_),
     workContractGroup_(other.workContractGroup_)
 {
-    other.flags_ = &dummy;
+    other.flags_ = &dummyFlags_;
     other.invokeFlags_ = 0;
     other.surrenderFlags_ = 0;
     other.index_ = -1;
@@ -64,7 +60,7 @@ auto maniscalco::system::work_contract::operator =
     index_ = other.index_;
     flags_ = other.flags_;
     workContractGroup_ = other.workContractGroup_;
-    other.flags_ = &dummy;
+    other.flags_ = &dummyFlags_;
     other.index_ = -1;
     return *this;
 }
@@ -93,7 +89,7 @@ bool maniscalco::system::work_contract::is_valid
 (
 ) const
 {
-    return (flags_ != &dummy);
+    return (flags_ != &dummyFlags_);
 }
 
 

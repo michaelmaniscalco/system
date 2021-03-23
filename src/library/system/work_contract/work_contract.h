@@ -81,8 +81,10 @@ namespace maniscalco::system
         std::atomic<std::uint64_t> *    flags_{nullptr};
 
         work_contract_group *           workContractGroup_{nullptr};
+
+        static std::atomic<std::uint64_t> dummyFlags_;
     };
-    
+
 } // namespace maniscalco::system
 
         
