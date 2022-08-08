@@ -163,7 +163,7 @@ bool maniscalco::system::work_contract_group::update_contract
 auto maniscalco::system::work_contract_group::create_contract
 (
     work_contract::contract_configuration_type const & contractConfiguration
-) -> std::optional<work_contract>
+) -> work_contract
 {
     std::uint64_t contractIndex = 0;
     bool claimedSlot = false;
@@ -185,7 +185,7 @@ auto maniscalco::system::work_contract_group::create_contract
         ++contractIndex;
     }
     if (!claimedSlot)
-        return std::nullopt; // at capacity
+        return {}; // at capacity
 
     auto shiftToContract = (bits_per_contract * (contractIndex % contracts_per_element_type));
     auto invokeFlags = (0x01ull << shiftToContract);

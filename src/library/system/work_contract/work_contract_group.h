@@ -41,7 +41,7 @@ namespace maniscalco::system
 
         ~work_contract_group() = default;
 
-        std::optional<work_contract> create_contract
+        work_contract create_contract
         (
             work_contract::contract_configuration_type const &
         );
