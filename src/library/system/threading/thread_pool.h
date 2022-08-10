@@ -2,6 +2,8 @@
 
 #include "./thread_id.h"
 
+#include <include/synchronicity_mode.h>
+
 #include <thread>
 #include <vector>
 #include <cstdint>
@@ -15,36 +17,34 @@ namespace maniscalco::system
     class thread_pool
     {
     public:
-    
-        using thread_pool_ready_handler = std::function<void()>;
-        using worker_thread_function = std::function<void()>;
-        
-        enum class stop_mode : std::uint32_t
+
+        struct thread_configuration
         {
-            blocking,
-            async
+            std::function<void()> initializeHandler_;
+            std::function<void()> terminateHandler_;
+            std::function<void(std::exception const &)> exceptionHandler_; 
+            std::function<void()> function_;          
         };
 
-        struct configuration_type
+        struct configuration
         {
-            std::size_t                 threadCount_;
-            worker_thread_function      workerThreadFunction_;
+            std::vector<thread_configuration>   threads_;
         };
 
         thread_pool
         (
-            configuration_type const &
+            configuration const &
         );
         
         ~thread_pool();
 
         void stop();
 
-        void stop(stop_mode);
+        void stop(synchronicity_mode);
 
     private:
     
-        std::vector<std::thread>    threads_;
+        std::vector<std::jthread>   threads_;
 
         bool volatile               terminateFlag_;
     };

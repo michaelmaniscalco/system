@@ -24,21 +24,10 @@ endif()
 
 option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" OFF)
 
-include(FetchContent)
+include("./scripts/fetch_dependencies.cmake")
 
-# type_safe
-FetchContent_Declare(
-    type_safe
-    GIT_REPOSITORY https://github.com/foonathan/type_safe.git
-    GIT_TAG main
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/type_safe-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/type_safe-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-)
-FetchContent_MakeAvailable(type_safe)
-FetchContent_GetProperties(type_safe)
-set(_type_safe_include_dir "${CMAKE_BINARY_DIR}/type_safe-src/include/")
+fetch_dependency("https://github.com/foonathan/type_safe.git;b9138d8a26ea9bbab965f87ee925f53fde025fd9")
+fetch_dependency("https://github.com/ericniebler/range-v3.git;3d6e6f56e5e1a3ec4befcc7695504ea23e1d52ab")
 
 add_subdirectory(src)
 

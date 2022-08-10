@@ -1,5 +1,4 @@
 #include "./work_contract_group.h"
-#include <include/invoke_from_weak_ptr.h>
 
 
 //=====================================================================================================================
@@ -18,8 +17,7 @@ maniscalco::system::work_contract_group::work_contract_group
     configuration const & config
 ):
     sharedState_(std::make_shared<shared_state>(shared_state::configuration{
-                .capacity_ = config.capacity_,
-                .contractRequiresServiceHandler_ = config.contractRequiresServiceHandler_
+                .capacity_ = config.capacity_
             })),
     capacity_(config.capacity_)
 {

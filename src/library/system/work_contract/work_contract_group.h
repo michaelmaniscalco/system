@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "./work_contract.h"
+#include "./alertable_work_contract.h"
 
 
 namespace maniscalco::system 
@@ -31,7 +32,6 @@ namespace maniscalco::system
         struct configuration
         {
             std::size_t                 capacity_{default_capacity};
-            contract_service_handler    contractRequiresServiceHandler_;
         };
         
         static std::shared_ptr<work_contract_group> create
@@ -78,7 +78,6 @@ namespace maniscalco::system
             struct configuration
             {
                 std::size_t                 capacity_{default_capacity};
-                contract_service_handler    contractRequiresServiceHandler_;
             };
 
             shared_state
@@ -86,12 +85,10 @@ namespace maniscalco::system
                 configuration config
             ):
                 contractStateFlags_((config.capacity_ + contracts_per_element_type - 1) / contracts_per_element_type),
-                contractRequiresServiceHandler_(config.contractRequiresServiceHandler_),
                 contracts_(config.capacity_)
             {
             }
             std::vector<std::atomic<element_type>>  contractStateFlags_;
-            contract_service_handler                contractRequiresServiceHandler_;
             std::vector<contract_info>              contracts_;
         };
 

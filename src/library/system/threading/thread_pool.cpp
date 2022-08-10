@@ -1,24 +1,40 @@
 #include "./thread_pool.h"
 
+#include <range/v3/view/enumerate.hpp>
+
+#include <atomic>
 
 //=============================================================================
 maniscalco::system::thread_pool::thread_pool
 (
-    configuration_type const & configuration
+    configuration const & config
 ):
     threads_(),
     terminateFlag_(false)
 {
-    threads_.resize(configuration.threadCount_);
-    for (auto & thread : threads_)
+    threads_.resize(config.threads_.size());
+
+    for (auto && [index, thread] : ranges::views::enumerate(threads_))
     {
-        thread = std::thread([threadFunction = configuration.workerThreadFunction_]
+        thread = std::jthread([config = config.threads_[index]]
                 (
                     bool volatile const & terminateFlag
                 )
                 {
-                    while (!terminateFlag)
-                        threadFunction();
+                    try
+                    {
+                        if (config.initializeHandler_)
+                            config.initializeHandler_();
+                        while (!terminateFlag)
+                            config.function_();
+                        if (config.terminateHandler_)
+                            config.terminateHandler_();
+                    }
+                    catch (std::exception const & exception)
+                    {
+                        if (config.exceptionHandler_)
+                            config.exceptionHandler_(exception);
+                    }
                 },
                 std::cref(terminateFlag_));
     }
@@ -43,7 +59,7 @@ void maniscalco::system::thread_pool::stop
     // issue terminate to all worker threads
 )
 {
-    stop(stop_mode::async);
+    stop(synchronicity_mode::async);
 }
 
 
@@ -52,11 +68,11 @@ void maniscalco::system::thread_pool::stop
 (
     // issue terminate to all worker threads. 
     // waits for all threads to terminate if waitForTerminationComplete is true
-    stop_mode stopMode
+    synchronicity_mode stopMode
 )
 {
     terminateFlag_ = true;
-    if (stopMode == stop_mode::blocking)
+    if (stopMode == synchronicity_mode::blocking)
         for (auto & thread : threads_)
             if (thread.joinable())
                 thread.join();

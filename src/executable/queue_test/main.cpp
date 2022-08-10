@@ -86,9 +86,9 @@ namespace
                     .contractHandler_ = [this](){this->on_link_has_data();},
                     .endContractHandler_ = nullptr // not really interested in when the contract expires in this case
                 });
-            if (!workContract)
+            if (!workContract.is_valid())
                 throw std::runtime_error("failed to get work contract");
-            workContract_ = std::move(*workContract); // this is horrible - reconsider optional as return from create_contract
+            workContract_ = std::move(workContract); 
             // create a queue and move the work contract into it so that it will invoke the work contract
             // whenever it receives data.
             link_ = std::make_shared<data_link>(data_link::configuration{.receiveHandler_ = [this](auto const &) mutable{this->workContract_.invoke();}});
@@ -151,18 +151,20 @@ int main
     char const **
 )
 {
+    using namespace maniscalco::system;
+
     // create a work_contract_group - very simple
     auto workContractGroup = maniscalco::system::work_contract_group::create({});
-
-    // create a worker thread pool and direct the threads to service the work contract group - also very simple
-    maniscalco::system::thread_pool workerThreadPool(   
-            {
-                .threadCount_ = 4,
-                .workerThreadFunction_ = [&]()
-                        {
-                            workContractGroup->service_contracts();
-                        }
-            });
+    static auto constexpr num_worker_threads = 4;
+    
+   // create a worker thread pool and direct the threads to service the work contract group - also very simple
+    std::vector<thread_pool::thread_configuration> threads(num_worker_threads);
+    for (auto & thread : threads)
+        thread.function_ = [&]()
+                {
+                    workContractGroup->service_contracts();
+                };
+    thread_pool workerThreadPool({.threads_ = threads});
 
     // create a message receiver
     receiver myReceiver(*workContractGroup);

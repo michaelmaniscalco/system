@@ -8,24 +8,28 @@
 #include <mutex>
 #include <cstdint>
 
+#include <range/v3/view/enumerate.hpp>
+
 #include <library/system.h>
 
 //#define SLEEP_WHILE_NO_WORK     // causes threads to sleep while no work is present (be a good citizen)
-//#define USE_MINIMAL_WORK_TASK   // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
+#define USE_MINIMAL_WORK_TASK   // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
 
-namespace
+
+namespace 
 {
+    using namespace maniscalco::system;
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
     static auto constexpr num_worker_threads = 6;
     static auto constexpr num_work_contracts = 128;
     std::size_t constexpr loop_count = 10; 
     
-    #ifdef SLEEP_WHILE_NO_WORK
-        std::atomic<std::size_t> _workCount{0};
-        auto _workContractGroup = maniscalco::system::work_contract_group::create([](){++_workCount;});
-    #else
-        auto _workContractGroup = maniscalco::system::work_contract_group::create({.capacity_ = num_work_contracts});
-    #endif
+    // create a work_contract_group - very simple
+    auto workContractGroup = work_contract_group::create({.capacity_ = num_work_contracts});
+
+    std::condition_variable conditionVariable;
+    std::mutex mutex;
+    std::size_t invokationCounter{0};
 }
 
 
@@ -34,7 +38,6 @@ std::size_t producer_thread_function
 (
 )
 {
-    std::atomic<bool> stopFlag = false;
     std::size_t result = 0;
 
     try
@@ -57,59 +60,55 @@ std::size_t producer_thread_function
         #endif
 
         // this thread will manage many work contracts
-        struct work_contract_info
-        {
-            maniscalco::system::work_contract workContract_;
-            std::size_t volatile count_{0};
-            bool volatile stopped_{false};
-        };
+        #ifdef SLEEP_WHILE_NO_WORK
+            std::array<maniscalco::system::alertable_work_contract, num_work_contracts> workContracts;
+        #else
+            std::array<maniscalco::system::work_contract, num_work_contracts> workContracts;
+        #endif
 
-        std::array<work_contract_info, num_work_contracts> workContracts;
-        std::array<std::size_t volatile, num_work_contracts> contractCount;  
+
+        std::array<std::size_t volatile, num_work_contracts> contractCount{};  
         auto contractIndex = 0;
-        for (auto & workContract : workContracts)
-            workContract.workContract_ = std::move(*_workContractGroup->create_contract(
+        for (auto && [index, workContract] : ranges::views::enumerate(workContracts))
+            workContract = {workContractGroup->create_contract(
                 {
-                    .contractHandler_ = [&, workTask]()
+                    .contractHandler_ = [&, workTask, index]()
                     {
-                        static std::atomic<int> n{0};
-                        thread_local static bool b = [&]()
-                                {
-                                    std::this_thread::sleep_for(std::chrono::microseconds(n++));
-                                    return true;
-                                }();
-                        
-                        if (stopFlag)
-                        {
-                            // once the global stop flag is set - stopping the test - we exit this work contract
-                            workContract.workContract_.surrender();
-                            workContract.stopped_ = true; 
-                        }
-                        else
-                        {
-                            // we have a worker thread honoring our work contract. let's make it do some work for us.
-                            workContract.count_ = workContract.count_ + (workTask() != 0);
-                            // invoke the contract again so another thread will come back and do some more work
-                            workContract.workContract_.invoke();
-                        }
+                        // we have a worker thread honoring our work contract. let's make it do some work for us.
+                        contractCount[index] = contractCount[index] + (workTask() != 0);
+                        // invoke the contract again so another thread will come back and do some more work
+                        workContracts[index].invoke();
                     },
-                }));
-
+                })
+                #ifdef SLEEP_WHILE_NO_WORK
+                    , [&]()
+                    {
+                        {
+                            std::unique_lock uniqueLock(mutex);
+                            ++invokationCounter;
+                        }
+                        conditionVariable.notify_one();
+                    }};
+                #else
+                    };
+                #endif
         // inovke each work contract to start them up - they will self re-invoke in the work contract for the purposes of this test.
         for (auto & workContract : workContracts)
-            workContract.workContract_();
+            workContract.invoke();
 
         // sleep while the work contracts keep being repeatedly invoked ...
         std::this_thread::sleep_for(test_duration);
 
         // terminate work contracts
-        stopFlag = true;
-        // wait for each contract to ack the stop and add up the total times which the contract was exercised
         for (auto & workContract : workContracts)
+            workContract.surrender();
+
+        // wait for each contract to ack the stop and add up the total times which the contract was exercised
+        for (auto && [index, workContract] : ranges::views::enumerate(workContracts))
         {
-            while (!workContract.stopped_)
+            while (workContract.is_valid())
                 std::this_thread::yield();
-            result += workContract.count_;
+            result += contractCount[index];
         }
     }
     catch (std::exception const & exception)
@@ -127,28 +126,34 @@ std::int32_t main
     char const **
 )
 {
-    // create really simple thread pool and basic worker thread function
-    // which services are work contract group.
-    maniscalco::system::thread_pool::configuration_type threadPoolConfiguration;
-    threadPoolConfiguration.threadCount_ = num_worker_threads;
-    threadPoolConfiguration.workerThreadFunction_ = []()
-            {
-             //   static bool once = [](){std::this_thread::sleep_for(std::chrono::seconds(50000)); return true;}();
-                #ifdef SLEEP_WHILE_NO_WORK
-                    auto spin = 8192;
-                    auto expectedWorkCount = _workCount.load();
-                    while ((spin--) && (expectedWorkCount > 0))
-                    {
-                        if (_workCount.compare_exchange_weak(expectedWorkCount, expectedWorkCount - 1))
-                            _workContractGroup->service_contracts();
-                    }
-                    if (expectedWorkCount == 0)
-                        std::this_thread::yield();
-                #else
-                    _workContractGroup->service_contracts();
-                #endif
-            };
-    maniscalco::system::thread_pool workerThreadPool(threadPoolConfiguration);
+
+    // create a worker thread pool and direct the threads to service the work contract group - also very simple
+    std::vector<thread_pool::thread_configuration> threads(num_worker_threads);
+    for (auto & thread : threads)
+        thread.function_ = [&, previousInvokationCounter = 0]() mutable
+                {
+                    #ifdef SLEEP_WHILE_NO_WORK
+                        std::unique_lock uniqueLock(mutex);
+                        if (previousInvokationCounter != invokationCounter)
+                        {
+                            previousInvokationCounter = invokationCounter;
+                            uniqueLock.unlock();
+                            workContractGroup->service_contracts();
+                        }
+                        else
+                        {
+                            if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                            {
+                                uniqueLock.unlock();
+                                workContractGroup->service_contracts(); 
+                            }
+                        }
+                    #else
+                        workContractGroup->service_contracts();
+                    #endif
+                };
+    thread_pool workerThreadPool({.threads_ = threads});
+
     // repeat test 'loop_count' times       
     for (std::size_t k = 0; k < loop_count; ++k)
     {
@@ -164,8 +169,8 @@ std::int32_t main
     }
 
     bool const waitForTerminationComplete = true;
-    workerThreadPool.stop(maniscalco::system::thread_pool::stop_mode::blocking);
-    _workContractGroup.reset();
+    workerThreadPool.stop(maniscalco::system::synchronicity_mode::blocking);
+    workContractGroup.reset();
 
     return 0;
 }

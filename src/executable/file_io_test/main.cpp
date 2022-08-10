@@ -8,13 +8,16 @@
 #include <mutex>
 #include <vector>
 
-#include <include/invoke_from_weak_ptr.h>
 #include <library/system.h>
 
 
-
-namespace
+namespace 
 {
+    using namespace maniscalco::system;
+
+    std::condition_variable conditionVariable;
+    std::mutex mutex;
+    std::size_t invokationCounter{0};
 
     // simple class that reads file in blocks and counts number of times that the target char appears within the file.
     // uses work_contract to do the work in asynchronous tasks.
@@ -38,7 +41,7 @@ namespace
 
         static std::shared_ptr<file_char_counter> create
         (
-            maniscalco::system::work_contract_group & workContractGroup,
+            work_contract_group & workContractGroup,
             configuration_type const & configuration
         )
         {
@@ -54,10 +57,7 @@ namespace
 
         std::string const & get_file_path() const{ return filePath_;}
 
-    protected:
-
     private:
-
 
         file_char_counter
         (
@@ -77,7 +77,7 @@ namespace
 
         bool initialize
         (
-            maniscalco::system::work_contract_group & workContractGroup,
+            work_contract_group & workContractGroup,
             configuration_type const & configuration            
         )
         {
@@ -89,21 +89,30 @@ namespace
                 return false;
             }
             // create a work contract
-            auto workContract = workContractGroup.create_contract(
+            workContract_ = {workContractGroup.create_contract(
                     {
                         .contractHandler_ = [wpThis = this->weak_from_this()] // invoke work contract
                                 (
                                 )
                                 {
-                                    maniscalco::invoke_from_weak_ptr(&file_char_counter::process_data, wpThis);
+                                    if (auto sp = wpThis.lock(); sp)
+                                        sp->process_data();
                                 }
-                    });
-            if (!workContract)
+                    }),            
+                    [&]()
+                    {
+                        {
+                            std::unique_lock uniqueLock(mutex);
+                            ++invokationCounter;
+                        }
+                        conditionVariable.notify_one();
+                    }};
+                    
+            if (!workContract_.is_valid())
             {
                 std::cerr << "Failed to create work contract" << std::endl;
                 return false;
             }
-            workContract_ = std::move(*workContract);
             workContract_.invoke();
             return true;
         }
@@ -145,7 +154,7 @@ namespace
 
         end_handler                             endHandler_;
 
-        maniscalco::system::work_contract       workContract_;
+        alertable_work_contract                 workContract_;
 
         std::vector<char>                       inputBuffer_;
 
@@ -184,53 +193,50 @@ namespace
     }
 
 
-    //==========================================================
-    // NOTE:
-    // the following globals are here to remove the 'boilerplate' setup
-    // of work contracts from the main code with the intention of highlighting
-    // how little code is needed to acheive asynchronous tasks based work.
-    // these globals are not intended to suggest that this is the best way to 
-    // write professional level code.  (^:
-    //==========================================================
-
-    std::condition_variable     conditionVariable;
-    std::mutex                  mutex;
-    
-    // create a work_contract_group - very simple
-    auto workContractGroup = maniscalco::system::work_contract_group::create({
-            .contractRequiresServiceHandler_ = []()
-            {
-                // whenever a contract is excercised we use our condition variable to 'wake' a thread.
-                conditionVariable.notify_one();
-            }});
-
-    // create a worker thread pool and direct the threads to service the work contract group - also very simple
-    auto num_threads = std::thread::hardware_concurrency();
-    maniscalco::system::thread_pool workerThreadPool(
-            {
-                num_threads,
-                []()
-                {
-                    // wait until the there is work to do rather than spin.
-                    bool doWork = false;
-                    {
-                        std::unique_lock uniqueLock(mutex);
-                        doWork = (conditionVariable.wait_for(uniqueLock, std::chrono::microseconds(10), [](){return workContractGroup->get_service_requested();}));
-                    }
-                    if (doWork)
-                        workContractGroup->service_contracts();
-                }
-            });
-
 } // anonymous namespace
 
 
 int main
 (
-    int, 
+    int argc, 
     char const ** argv
 )
 {
+    if (argc != 3)
+    {
+        std::cout << "usage:  file_io_test char_to_find path_to_input_directory\n";
+        std::cout << "example (count occurances of character 'e' in all files in directory 'test_directory'):\n";
+        std::cout << "\tfile_io_test e ~/test_directory/\n";
+        return 0;
+    }
+    
+    // create a work_contract_group - very simple
+    auto workContractGroup = work_contract_group::create({});
+
+    // create a worker thread pool and direct the threads to service the work contract group - also very simple
+    std::vector<thread_pool::thread_configuration> threads(std::thread::hardware_concurrency());
+    for (auto & thread : threads)
+        thread.function_ = [&, previousInvokationCounter = 0]() mutable
+                        {
+                            std::unique_lock uniqueLock(mutex);
+                            if (previousInvokationCounter != invokationCounter)
+                            {
+                                previousInvokationCounter = invokationCounter;
+                                uniqueLock.unlock();
+                                workContractGroup->service_contracts();
+                            }
+                            else
+                            {
+                                if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                                {
+                                    uniqueLock.unlock();
+                                    workContractGroup->service_contracts();
+                                }
+                            }
+                        };
+
+    thread_pool workerThreadPool({.threads_ = threads});
+
     // load the files as specified by the input args
     auto filePaths = load_file_paths(argv[2]);
     if (filePaths.size() > workContractGroup->get_capacity())
@@ -271,6 +277,6 @@ int main
         std::cout << fileCharCounter->get_file_path() << " processed: '" << fileCharCounter->get_target() << "' occured " << 
                 fileCharCounter->get_count() << " times in file" << std::endl;
     }
-    std::cout << "processed " << fileCharCounters.size() << " files concurrently using " << num_threads << " worker threads." << std::endl;
+    std::cout << "processed " << fileCharCounters.size() << " files concurrently using " << threads.size() << " worker threads." << std::endl;
     return 0;
 }
