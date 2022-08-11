@@ -12,8 +12,8 @@
 
 #include <library/system.h>
 
-//#define SLEEP_WHILE_NO_WORK     // causes threads to sleep while no work is present (be a good citizen)
-#define USE_MINIMAL_WORK_TASK   // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
+static auto constexpr sleep_when_no_work = false;     // causes threads to sleep while no work is present (be a good citizen)
+static auto constexpr use_minimal_work_task = true;  // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
 
 
 namespace 
@@ -30,24 +30,26 @@ namespace
     std::condition_variable conditionVariable;
     std::mutex mutex;
     std::size_t invokationCounter{0};
-}
 
-
-//======================================================================================================================
-std::size_t producer_thread_function
-(
-)
-{
-    std::size_t result = 0;
-
-    try
-    {
-        // construct some work to do which has some heft to it
-        #ifdef USE_MINIMAL_WORK_TASK
-            auto workTask = [](){return 1;};
-        #else
-            auto workTask = []()
+    // create a work task that each work_contract will use for its primary
+    // work.  If we are measuring just the work_contract plumbing (no actual work)
+    // then the work task will simply return 1.  Otherwise, we assign some work
+    // that has some measurable amount of CPU time associated with it instead.
+    // This heavier work load is used to make the work take time and allows us
+    // to measure how well work_contracts behave when there are concurrent contracts.
+    auto workTask = []()
+            {
+                if constexpr (use_minimal_work_task)
                 {
+                    // minimal work. just return 1
+                    return 1;
+                }
+                else
+                {
+                    // the work here is simply to ensure that it takes time.
+                    // in the end we will simply return a non zero value
+                    // but its written in such a way as to avoid having the 
+                    // compiler figure this out and optimize away the work.
                     auto total = 0;
                     for (auto i = 0; i < 20; ++i)
                     {
@@ -56,42 +58,92 @@ std::size_t producer_thread_function
                         total += std::atoi(s.c_str());
                     }
                     return (total + (total == 0));
-                };
-        #endif
+                }
+            };
 
-        // this thread will manage many work contracts
-        #ifdef SLEEP_WHILE_NO_WORK
-            std::array<maniscalco::system::alertable_work_contract, num_work_contracts> workContracts;
-        #else
-            std::array<maniscalco::system::work_contract, num_work_contracts> workContracts;
-        #endif
+    // this code will use a special wrapper class around standard 
+    // work_contracts.  An alertable_work_contract takes a second
+    // argument which is a function to execute each time the underlying
+    // work_contract is invoked.  We use this function to notify worker
+    // threads as to when there is a pending work_contract invokation.
+    // if the test is compiled to let worker threads spin instead (not cpu friendly)
+    // then this secondary function will be empty.
+    auto workContractAlert = []()
+            {
+                if constexpr (sleep_when_no_work)
+                {
+                    // this test can work in one of two modes.
+                    // if we choose to let worker threads sleep
+                    // when there are no invoked work contracts
+                    // then this code is used to delay the 
+                    // worker threads without spinning.
+                    {
+                        std::unique_lock uniqueLock(mutex);
+                        ++invokationCounter;
+                    } 
+                    conditionVariable.notify_one();
+                }
+            };
 
 
-        std::array<std::size_t volatile, num_work_contracts> contractCount{};  
+    // the worker threads need a primary function to repeatedly invoke.
+    // if the test is compiled to allow the worker threads to sleep 
+    // when there are no active work_contracts then they wait on a 
+    // condition_variable which is triggered by the work_contracts as
+    // they get invoked. 
+    // otherwise the test is compiled to allow the worker threads to spin
+    // constantly and therefore process work_contracts with lower latency.
+    auto workerThreadFunction = [previousInvokationCounter = 0]() mutable
+            {
+                if constexpr (sleep_when_no_work)
+                {
+                    std::unique_lock uniqueLock(mutex);
+                    if (previousInvokationCounter != invokationCounter)
+                    {
+                        previousInvokationCounter = invokationCounter;
+                        uniqueLock.unlock();
+                        workContractGroup->service_contracts();
+                    }
+                    else
+                    {
+                        if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                        {
+                            uniqueLock.unlock();
+                            workContractGroup->service_contracts(); 
+                        }
+                    }
+                }
+                else
+                {
+                    workContractGroup->service_contracts();
+                }
+            };
+}
+
+
+//======================================================================================================================
+std::size_t run_work_contracts
+(
+)
+{
+    std::size_t result = 0;
+    try
+    {
+        // create collection of work contracts
+        std::array<maniscalco::system::alertable_work_contract, num_work_contracts> workContracts;
+        std::array<std::size_t, num_work_contracts> contractCount{};  
         auto contractIndex = 0;
         for (auto && [index, workContract] : ranges::views::enumerate(workContracts))
             workContract = {workContractGroup->create_contract(
                 {
-                    .contractHandler_ = [&, workTask, index]()
+                    .contractHandler_ = [&, index]() // main work for each work contract
                     {
-                        // we have a worker thread honoring our work contract. let's make it do some work for us.
-                        contractCount[index] = contractCount[index] + (workTask() != 0);
-                        // invoke the contract again so another thread will come back and do some more work
-                        workContracts[index].invoke();
+                        contractCount[index] = contractCount[index] + (workTask() != 0); // do some work
+                        workContracts[index].invoke(); // re-invoke the same contract (loop until test is terminated)
                     },
-                })
-                #ifdef SLEEP_WHILE_NO_WORK
-                    , [&]()
-                    {
-                        {
-                            std::unique_lock uniqueLock(mutex);
-                            ++invokationCounter;
-                        }
-                        conditionVariable.notify_one();
-                    }};
-                #else
-                    };
-                #endif
+                }), 
+                workContractAlert // the function to trigger with each work contract invokation
+                };
         // inovke each work contract to start them up - they will self re-invoke in the work contract for the purposes of this test.
         for (auto & workContract : workContracts)
             workContract.invoke();
@@ -113,7 +165,7 @@ std::size_t producer_thread_function
     }
     catch (std::exception const & exception)
     {
-        std::cerr << exception.what();
+        std::cerr << exception.what() << "\n";
     }
     return result;
 }
@@ -126,32 +178,10 @@ std::int32_t main
     char const **
 )
 {
-
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     std::vector<thread_pool::thread_configuration> threads(num_worker_threads);
     for (auto & thread : threads)
-        thread.function_ = [&, previousInvokationCounter = 0]() mutable
-                {
-                    #ifdef SLEEP_WHILE_NO_WORK
-                        std::unique_lock uniqueLock(mutex);
-                        if (previousInvokationCounter != invokationCounter)
-                        {
-                            previousInvokationCounter = invokationCounter;
-                            uniqueLock.unlock();
-                            workContractGroup->service_contracts();
-                        }
-                        else
-                        {
-                            if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
-                            {
-                                uniqueLock.unlock();
-                                workContractGroup->service_contracts(); 
-                            }
-                        }
-                    #else
-                        workContractGroup->service_contracts();
-                    #endif
-                };
+        thread.function_ = workerThreadFunction;
     thread_pool workerThreadPool({.threads_ = threads});
 
     // repeat test 'loop_count' times       
@@ -159,7 +189,7 @@ std::int32_t main
     {
         std::cout << "test iteration " << (k + 1) << " of " << loop_count << ": " << std::flush;
         auto startTime = std::chrono::system_clock::now();
-        auto taskCount = producer_thread_function();
+        auto taskCount = run_work_contracts();
         auto stopTime = std::chrono::system_clock::now();
         auto elapsedTime = (stopTime - startTime);
         auto test_duration_in_sec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(elapsedTime).count() / std::nano::den;
