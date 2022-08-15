@@ -1,7 +1,5 @@
 #pragma once
 
-#include "./thread_id.h"
-
 #include <include/synchronicity_mode.h>
 
 #include <thread>
