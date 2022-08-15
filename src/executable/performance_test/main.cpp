@@ -136,10 +136,10 @@ std::size_t run_work_contracts
         for (auto && [index, workContract] : ranges::views::enumerate(workContracts))
             workContract = {workContractGroup->create_contract(
                 {
-                    .contractHandler_ = [&, index]() // main work for each work contract
+                    .contractHandler_ = [&, i = index]() // main work for each work contract
                     {
-                        contractCount[index] = contractCount[index] + (workTask() != 0); // do some work
-                        workContracts[index].invoke(); // re-invoke the same contract (loop until test is terminated)
+                        contractCount[i] = contractCount[i] + (workTask() != 0); // do some work
+                        workContracts[i].invoke(); // re-invoke the same contract (loop until test is terminated)
                     },
                 }), 
                 workContractAlert // the function to trigger with each work contract invokation
@@ -171,10 +171,9 @@ std::size_t run_work_contracts
 }
 
 
-//======================================================================================================================
-std::int32_t main
+int main
 (
-    std::int32_t,
+    int, 
     char const **
 )
 {
