@@ -160,7 +160,7 @@ int main
    // create a worker thread pool and direct the threads to service the work contract group - also very simple
     std::vector<thread_pool::thread_configuration> threads(num_worker_threads);
     for (auto & thread : threads)
-        thread.function_ = [&]()
+        thread.function_ = [&](std::stop_token const & stopToken)
                 {
                     workContractGroup->service_contracts();
                 };

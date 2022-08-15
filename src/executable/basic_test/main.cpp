@@ -21,7 +21,7 @@ int main
     // create a work_contract_group - very simple
     auto workContractGroup = work_contract_group::create({});
 
-    std::condition_variable conditionVariable;
+    std::condition_variable_any conditionVariable;
     std::mutex mutex;
     std::size_t invokationCounter{0};
 
@@ -29,7 +29,7 @@ int main
     static auto constexpr thread_count = 8;
     std::vector<thread_pool::thread_configuration> threads(thread_count);
     for (auto & thread : threads)
-        thread.function_ = [&, previousInvokationCounter = 0]() mutable
+        thread.function_ = [&, previousInvokationCounter = 0](std::stop_token const & stopToken) mutable
                         {
                                 std::unique_lock uniqueLock(mutex);
                                 if (previousInvokationCounter != invokationCounter)
@@ -40,7 +40,8 @@ int main
                                 }
                                 else
                                 {
-                                    if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                                    conditionVariable.wait(uniqueLock, stopToken, [&](){return (previousInvokationCounter != invokationCounter);});
+                                    if (!stopToken.stop_requested())
                                     {
                                         uniqueLock.unlock();
                                         workContractGroup->service_contracts(); 

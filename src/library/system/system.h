@@ -1,4 +1,17 @@
 #pragma once
 
+#include "./cpu_id.h"
+
 #include "./threading/thread_pool.h"
 #include "./work_contract/work_contract_group.h"
+
+namespace maniscalco::system
+{
+    cpu_id get_cpu_affinity();
+
+    bool set_cpu_affinity
+    (
+        // set core affinity for the thread
+        cpu_id 
+    );
+}

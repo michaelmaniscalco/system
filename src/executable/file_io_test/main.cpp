@@ -15,7 +15,7 @@ namespace
 {
     using namespace maniscalco::system;
 
-    std::condition_variable conditionVariable;
+    std::condition_variable_any conditionVariable;
     std::mutex mutex;
     std::size_t invokationCounter{0};
 
@@ -216,7 +216,7 @@ int main
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     std::vector<thread_pool::thread_configuration> threads(std::thread::hardware_concurrency());
     for (auto & thread : threads)
-        thread.function_ = [&, previousInvokationCounter = 0]() mutable
+        thread.function_ = [&, previousInvokationCounter = 0](std::stop_token const & stopToken) mutable
                         {
                             std::unique_lock uniqueLock(mutex);
                             if (previousInvokationCounter != invokationCounter)
@@ -227,7 +227,8 @@ int main
                             }
                             else
                             {
-                                if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                                conditionVariable.wait(uniqueLock, stopToken, [&](){return (previousInvokationCounter != invokationCounter);});
+                                if (!stopToken.stop_requested())
                                 {
                                     uniqueLock.unlock();
                                     workContractGroup->service_contracts();

@@ -2,11 +2,12 @@
 
 #include <include/synchronicity_mode.h>
 
+#include <exception>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 #include <cstdint>
 #include <functional>
-#include <memory>
 
 
 namespace maniscalco::system 
@@ -20,8 +21,8 @@ namespace maniscalco::system
         {
             std::function<void()> initializeHandler_;
             std::function<void()> terminateHandler_;
-            std::function<void(std::exception const &)> exceptionHandler_; 
-            std::function<void()> function_;          
+            std::function<void(std::exception_ptr)> exceptionHandler_; 
+            std::function<void(std::stop_token const &)> function_;          
         };
 
         struct configuration
@@ -33,8 +34,6 @@ namespace maniscalco::system
         (
             configuration const &
         );
-        
-        ~thread_pool();
 
         void stop();
 
@@ -43,8 +42,6 @@ namespace maniscalco::system
     private:
     
         std::vector<std::jthread>   threads_;
-
-        bool volatile               terminateFlag_;
     };
     
 } // namespace maniscalco::system 

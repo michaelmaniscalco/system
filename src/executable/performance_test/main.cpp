@@ -11,6 +11,7 @@
 #include <range/v3/view/enumerate.hpp>
 
 #include <library/system.h>
+#include <library/system/cpu_id.h>
 
 static auto constexpr sleep_when_no_work = false;     // causes threads to sleep while no work is present (be a good citizen)
 static auto constexpr use_minimal_work_task = true;  // use the simplest work possible to measure the max throughput of the work_contract plumbing itself
@@ -20,14 +21,14 @@ namespace
 {
     using namespace maniscalco::system;
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
-    static auto constexpr num_worker_threads = 6;
+    static auto const num_worker_threads = ((std::thread::hardware_concurrency() + 1) / 2);
     static auto constexpr num_work_contracts = 128;
     std::size_t constexpr loop_count = 10; 
     
     // create a work_contract_group - very simple
     auto workContractGroup = work_contract_group::create({.capacity_ = num_work_contracts});
 
-    std::condition_variable conditionVariable;
+    std::condition_variable_any conditionVariable;
     std::mutex mutex;
     std::size_t invokationCounter{0};
 
@@ -93,7 +94,7 @@ namespace
     // they get invoked. 
     // otherwise the test is compiled to allow the worker threads to spin
     // constantly and therefore process work_contracts with lower latency.
-    auto workerThreadFunction = [previousInvokationCounter = 0]() mutable
+    auto workerThreadFunction = [previousInvokationCounter = 0](std::stop_token const & stopToken) mutable
             {
                 if constexpr (sleep_when_no_work)
                 {
@@ -106,7 +107,8 @@ namespace
                     }
                     else
                     {
-                        if (conditionVariable.wait_for(uniqueLock, std::chrono::milliseconds(5), [&](){return (previousInvokationCounter != invokationCounter);}))
+                        conditionVariable.wait(uniqueLock, stopToken, [&](){return (previousInvokationCounter != invokationCounter);});
+                        if (!stopToken.stop_requested())
                         {
                             uniqueLock.unlock();
                             workContractGroup->service_contracts(); 
@@ -180,7 +182,10 @@ int main
     // create a worker thread pool and direct the threads to service the work contract group - also very simple
     std::vector<thread_pool::thread_configuration> threads(num_worker_threads);
     for (auto & thread : threads)
+    {
+        thread.initializeHandler_ = []{static std::atomic<cpu_id> cpuId; set_cpu_affinity(cpuId++);};
         thread.function_ = workerThreadFunction;
+    }
     thread_pool workerThreadPool({.threads_ = threads});
 
     // repeat test 'loop_count' times       
