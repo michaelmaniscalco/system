@@ -15,7 +15,9 @@ target_include_directories(system
         ${CMAKE_SOURCE_DIR}/src
         $<BUILD_INTERFACE:${_system_include_dir}>
         $<INSTALL_INTERFACE:include/system>
+        ${_range-v3_src_path}/include
 )
+
 
 target_compile_features(system PUBLIC cxx_std_20)
 
