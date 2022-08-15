@@ -26,7 +26,6 @@ option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" OFF)
 
 include("./scripts/fetch_dependencies.cmake")
 
-fetch_dependency("https://github.com/foonathan/type_safe.git;b9138d8a26ea9bbab965f87ee925f53fde025fd9")
 fetch_dependency("https://github.com/ericniebler/range-v3.git;3d6e6f56e5e1a3ec4befcc7695504ea23e1d52ab")
 
 add_subdirectory(src)
