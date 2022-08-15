@@ -8,8 +8,6 @@ add_library(system
 
 target_link_libraries(system)
 
-message(STATUS "path = ${CMAKE_SOURCE_DIR}/src")
-
 target_include_directories(system
     PUBLIC
         ${CMAKE_SOURCE_DIR}/src
@@ -17,7 +15,6 @@ target_include_directories(system
         $<INSTALL_INTERFACE:include/system>
         ${_range-v3_src_path}/include
 )
-
 
 target_compile_features(system PUBLIC cxx_std_20)
 
