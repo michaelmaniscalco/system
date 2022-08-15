@@ -22,7 +22,7 @@ else()
 endif()
 
 
-option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" OFF)
+option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" ON)
 
 include("./scripts/fetch_dependencies.cmake")
 
