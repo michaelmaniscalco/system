@@ -28,6 +28,9 @@ include("./scripts/fetch_dependencies.cmake")
 
 fetch_dependency("https://github.com/ericniebler/range-v3.git;3d6e6f56e5e1a3ec4befcc7695504ea23e1d52ab")
 
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PROJECT_NAME})
+
 add_subdirectory(src)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
