@@ -16,7 +16,7 @@ namespace maniscalco::system
 
         using value_type = std::int32_t;
 
-        constexpr file_descriptor() = default;
+        file_descriptor() = default;
 
         file_descriptor
         (
@@ -48,8 +48,6 @@ namespace maniscalco::system
 
         value_type   value_{0};
     };
-
-    static file_descriptor constexpr invalid_file_descriptor; 
 
 } // namespace maniscalco::system
 
