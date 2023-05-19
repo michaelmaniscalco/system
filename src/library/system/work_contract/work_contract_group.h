@@ -9,7 +9,7 @@
 
 namespace maniscalco::system 
 {
-    
+
     class work_contract;
 
 
@@ -60,6 +60,19 @@ namespace maniscalco::system
         void surrender
         (
             work_contract const &
+        );
+
+        bool update
+        (
+            work_contract &,
+            std::function<void()>
+        );
+
+        bool update
+        (
+            work_contract &,
+            std::function<void()>,
+            std::function<void()>
         );
 
         std::int64_t decrement_contract_count_left_preference(std::int64_t);
@@ -268,4 +281,33 @@ inline std::size_t maniscalco::system::work_contract_group::get_capacity
 ) const
 {
     return contracts_.size();
+}
+
+
+//=============================================================================
+inline bool maniscalco::system::work_contract_group::update
+(
+    work_contract & workContract,
+    std::function<void()> function
+)
+{
+    auto & contract = contracts_[workContract.get_id()];
+    contract.work_ = function;
+    contract.surrender_ = nullptr;
+    return true;
+}
+
+
+//=============================================================================
+inline bool maniscalco::system::work_contract_group::update
+(
+    work_contract & workContract,
+    std::function<void()> function,
+    std::function<void()> surrender
+)
+{
+    auto & contract = contracts_[workContract.get_id()];
+    contract.work_ = function;
+    contract.surrender_ = surrender;
+    return true;
 }

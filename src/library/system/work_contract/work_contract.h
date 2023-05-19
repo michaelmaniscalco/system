@@ -6,7 +6,7 @@
 
 namespace maniscalco::system
 {
-    
+
     class work_contract_group;
 
 
@@ -34,6 +34,17 @@ namespace maniscalco::system
         operator bool() const;
 
         std::size_t get_id() const;
+
+        bool update
+        (
+            std::function<void()>
+        );
+
+        bool update
+        (
+            std::function<void()>,
+            std::function<void()>
+        );
 
     private:
 
@@ -159,4 +170,29 @@ inline maniscalco::system::work_contract::operator bool
 ) const
 {
     return is_valid();
+}
+
+
+//=============================================================================
+inline bool maniscalco::system::work_contract::update
+(
+    std::function<void()> function
+)
+{
+    if (owner_)
+        return owner_->update(*this, function);
+    return false;
+}
+
+
+//=============================================================================
+inline bool maniscalco::system::work_contract::update
+(
+    std::function<void()> function,
+    std::function<void()> surrender
+)
+{
+    if (owner_)
+        return owner_->update(*this, function, surrender);
+    return false;
 }

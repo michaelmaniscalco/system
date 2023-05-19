@@ -10,8 +10,7 @@
 #include <vector>
 #include <thread>
 
-#include "./work_contract.h"
-#include "./work_contract_group.h"
+#include <library/system.h>
 
 
 //=============================================================================
@@ -22,7 +21,7 @@ void bare_minimum_example
     // however, a mimium example is useful for understading the basic concepts.
 )
 {
-    work_contract_group workContractGroup(8);
+    maniscalco::system::work_contract_group workContractGroup(8);
     auto workContract = workContractGroup.create_contract([](){std::cout << "contract invoked\n";}, nullptr);
 
     workContract.invoke();
@@ -43,7 +42,7 @@ void basic_example
 {
     // create work contract group
     static auto constexpr max_number_of_contracts = 32;
-    work_contract_group workContractGroup(max_number_of_contracts);
+    maniscalco::system::work_contract_group workContractGroup(max_number_of_contracts);
 
     // create worker thread to service work contracts asynchronously
     std::jthread workerThread([&](auto const & stopToken)
@@ -56,7 +55,7 @@ void basic_example
     std::atomic<bool> surrendered{false};
 
     // create a work contract from the work contract group
-    work_contract workContract = workContractGroup.create_contract(
+    maniscalco::system::work_contract workContract = workContractGroup.create_contract(
             [&](){std::cout << "invokeCounter = " << --invokeCounter << "\n";},         // this is the async function
             [&](){std::cout << "work contract surrendered\n"; surrendered = true;});    // this is the one-shot surrender function
                     
@@ -86,7 +85,7 @@ void multithreaded_example
 {
     // create work contract group
     static auto constexpr max_number_of_contracts = 32;
-    work_contract_group workContractGroup(max_number_of_contracts);
+    maniscalco::system::work_contract_group workContractGroup(max_number_of_contracts);
 
     // create worker thread to service work contracts asynchronously
     auto max_number_of_worker_threads = std::thread::hardware_concurrency() / 2;
@@ -100,7 +99,7 @@ void multithreaded_example
     std::atomic<bool> surrendered{false};
 
     // create a work contract from the work contract group
-    work_contract workContract = workContractGroup.create_contract(
+    maniscalco::system::work_contract workContract = workContractGroup.create_contract(
             [&](){if ((invokeCounter & 0xfff) == 0) std::cout << "remaining invocation count: " << --invokeCounter << "     \r"; --invokeCounter;},         // this is the async function
             [&](){std::cout << "\nwork contract surrendered\n"; surrendered = true;});    // this is the one-shot surrender function
                     
@@ -146,11 +145,11 @@ void measure_multithreaded_concurrent_contracts
             }();
 
     // enable each contract to invoke the next random contract upon its own completion.
-    work_contract_group workContractGroup(max_contracts);
+    maniscalco::system::work_contract_group workContractGroup(max_contracts);
     std::atomic<std::size_t> totalTaskCount;
     thread_local std::size_t taskCount;
     std::vector<std::atomic<std::size_t>> count(max_contracts);
-    std::vector<work_contract> workContracts(max_contracts);
+    std::vector<maniscalco::system::work_contract> workContracts(max_contracts);
     for (auto i = 0; i < max_contracts; ++i)
         workContracts[i] = workContractGroup.create_contract([&, index = i]() mutable{++taskCount;// ++count[index]; workContracts[0].invoke();
                 workContracts[index = contractId[index]].invoke(); });
