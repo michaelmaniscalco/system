@@ -42,7 +42,7 @@ public:
         std::function<void()>,
         std::function<void()>
     );
-
+ 
 private:
 
     friend class work_contract_group;

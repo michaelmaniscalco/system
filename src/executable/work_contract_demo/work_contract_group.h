@@ -295,3 +295,4 @@ inline bool work_contract_group::update
     contract.surrender_ = surrender;
     return true;
 }
+ 
