@@ -27,7 +27,7 @@ option(WORKCONTRACT_BUILD_DEMO "Build the CLI demo" ON)
 
 include("./scripts/fetch_dependencies.cmake")
 
-fetch_dependency("https://github.com/ericniebler/range-v3.git;3d6e6f56e5e1a3ec4befcc7695504ea23e1d52ab")
+fetch_dependency("https://github.com/ericniebler/range-v3.git;master")
 
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PROJECT_NAME})
