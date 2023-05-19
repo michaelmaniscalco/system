@@ -1,6 +1,7 @@
 #pragma once
 
-#include <include/synchronicity_mode.h>
+#include <library/system/cpu_id.h>
+#include <include/synchronization_mode.h>
 
 #include <exception>
 #include <stdexcept>
@@ -8,6 +9,7 @@
 #include <vector>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 
 namespace maniscalco::system 
@@ -19,10 +21,11 @@ namespace maniscalco::system
 
         struct thread_configuration
         {
-            std::function<void()> initializeHandler_;
-            std::function<void()> terminateHandler_;
-            std::function<void(std::exception_ptr)> exceptionHandler_; 
-            std::function<void(std::stop_token const &)> function_;          
+            std::function<void()>                           initializeHandler_;
+            std::function<void()>                           terminateHandler_;
+            std::function<void(std::exception_ptr)>         exceptionHandler_; 
+            std::function<void(std::stop_token const &)>    function_;
+            std::optional<cpu_id>                           cpuId_;
         };
 
         struct configuration
@@ -37,7 +40,7 @@ namespace maniscalco::system
 
         void stop();
 
-        void stop(synchronicity_mode);
+        void stop(synchronization_mode);
 
     private:
     

@@ -4,60 +4,55 @@
 #include <cstdint>
 
 
-namespace maniscalco::system
+class work_contract_group;
+
+
+class work_contract
 {
-    
-    class work_contract_group;
+public:
 
+    work_contract() = default;
+    ~work_contract();
 
-    class work_contract
-    {
-    public:
+    work_contract(work_contract &&);
+    work_contract & operator = (work_contract &&);
 
-        work_contract() = default;
-        ~work_contract();
+    work_contract(work_contract const &) = delete;
+    work_contract & operator = (work_contract const &) = delete;
 
-        work_contract(work_contract &&);
-        work_contract & operator = (work_contract &&);
+    void operator()();
 
-        work_contract(work_contract const &) = delete;
-        work_contract & operator = (work_contract const &) = delete;
+    void invoke();
 
-        void operator()();
+    void surrender();
 
-        void invoke();
+    bool is_valid() const;
 
-        void surrender();
+    operator bool() const;
 
-        bool is_valid() const;
+    std::size_t get_id() const;
 
-        operator bool() const;
+private:
 
-        std::size_t get_id() const;
+    friend class work_contract_group;
 
-    private:
+    work_contract
+    (
+        work_contract_group *, 
+        std::size_t
+    );
 
-        friend class work_contract_group;
+    work_contract_group *   owner_{};
 
-        work_contract
-        (
-            work_contract_group *, 
-            std::size_t
-        );
-
-        work_contract_group *   owner_{};
-
-        std::size_t             id_{};
-    };
-
-} // namespace maniscalco::system
+    std::size_t             id_{};
+};
 
 
 #include "./work_contract_group.h"
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::work_contract
+inline work_contract::work_contract
 (
     work_contract_group * owner, 
     std::size_t id
@@ -69,7 +64,7 @@ inline maniscalco::system::work_contract::work_contract
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::work_contract
+inline work_contract::work_contract
 (
     work_contract && other
 ):
@@ -82,7 +77,7 @@ inline maniscalco::system::work_contract::work_contract
 
     
 //=============================================================================
-inline auto maniscalco::system::work_contract::operator =
+inline auto work_contract::operator =
 (
     work_contract && other
 ) -> work_contract &
@@ -99,7 +94,7 @@ inline auto maniscalco::system::work_contract::operator =
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::~work_contract
+inline work_contract::~work_contract
 (
 )
 {
@@ -108,7 +103,7 @@ inline maniscalco::system::work_contract::~work_contract
 
 
 //=============================================================================
-inline std::size_t maniscalco::system::work_contract::get_id
+inline std::size_t work_contract::get_id
 (
 ) const
 {
@@ -117,7 +112,7 @@ inline std::size_t maniscalco::system::work_contract::get_id
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::invoke
+inline void work_contract::invoke
 (
 )
 {
@@ -126,7 +121,7 @@ inline void maniscalco::system::work_contract::invoke
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::operator()
+inline void work_contract::operator()
 (
 )
 {
@@ -135,7 +130,7 @@ inline void maniscalco::system::work_contract::operator()
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::surrender
+inline void work_contract::surrender
 (
 )
 {
@@ -145,7 +140,7 @@ inline void maniscalco::system::work_contract::surrender
 
 
 //=============================================================================
-inline bool maniscalco::system::work_contract::is_valid
+inline bool work_contract::is_valid
 (
 ) const
 {
@@ -154,7 +149,7 @@ inline bool maniscalco::system::work_contract::is_valid
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::operator bool
+inline work_contract::operator bool
 (
 ) const
 {

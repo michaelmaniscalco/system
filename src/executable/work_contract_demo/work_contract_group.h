@@ -7,105 +7,98 @@
 #include <atomic>
 
 
-namespace maniscalco::system 
+class work_contract;
+
+
+class work_contract_group
 {
-    
-    class work_contract;
+public:
 
+    work_contract_group
+    (
+        std::int64_t
+    );
 
-    class work_contract_group
+    work_contract create_contract
+    (
+        std::function<void()>
+    );
+
+    work_contract create_contract
+    (
+        std::function<void()>,
+        std::function<void()>
+    );
+
+    void service_contracts();
+
+private:
+
+    friend class work_contract;
+
+    struct contract
     {
-    public:
-
-        work_contract_group
-        (
-            std::int64_t
-        );
-
-        work_contract create_contract
-        (
-            std::function<void()>
-        );
-
-        work_contract create_contract
-        (
-            std::function<void()>,
-            std::function<void()>
-        );
-
-        void service_contracts();
-
-        std::size_t get_capacity() const;
-
-    private:
-
-        friend class work_contract;
-
-        struct contract
-        {
-            static auto constexpr surrender_flag    = 0x00000004;
-            static auto constexpr execute_flag      = 0x00000002;
-            static auto constexpr invoke_flag       = 0x00000001;
-        
-            std::function<void()>       work_;
-            std::function<void()>       surrender_;
-            std::atomic<std::int32_t>   flags_;
-        };
-
-        void invoke
-        (
-            work_contract const &
-        );
-
-        void surrender
-        (
-            work_contract const &
-        );
-
-        std::int64_t decrement_contract_count_left_preference(std::int64_t);
-
-        std::int64_t decrement_contract_count_right_preference(std::int64_t);
-
-        void process_contract(std::int64_t);
-
-        void increment_contract_count(std::int64_t);
-
-        union alignas(8) invocation_counter
-        {
-            invocation_counter():u64_(){}
-
-            std::atomic<std::uint64_t> u64_;
-            struct
-            {
-                std::uint32_t left_;
-                std::uint32_t right_;
-            } u32_;
-        };
-
-        static_assert(sizeof(invocation_counter) == sizeof(std::uint64_t));
-
-        std::vector<invocation_counter>         invocationCounter_;
-
-        std::vector<contract>                   contracts_;
-
-        std::int64_t                            firstContractIndex_;
-
-        std::mutex                              mutex_;
-
-        std::atomic<std::int32_t>               nextAvail_;
-        
-        std::atomic<std::uint64_t>              preferenceFlags_;
-
+        static auto constexpr surrender_flag    = 0x00000004;
+        static auto constexpr execute_flag      = 0x00000002;
+        static auto constexpr invoke_flag       = 0x00000001;
+    
+        std::function<void()>       work_;
+        std::function<void()>       surrender_;
+        std::atomic<std::int32_t>   flags_;
     };
 
-} // namespace maniscalco::system
+    void invoke
+    (
+        work_contract const &
+    );
+
+    void surrender
+    (
+        work_contract const &
+    );
+
+    std::int64_t decrement_contract_count_left_preference(std::int64_t);
+
+    std::int64_t decrement_contract_count_right_preference(std::int64_t);
+
+    void process_contract(std::int64_t);
+
+    void increment_contract_count(std::int64_t);
+
+    union alignas(8) invocation_counter
+    {
+        invocation_counter():u64_(){}
+
+        std::atomic<std::uint64_t> u64_;
+        struct
+        {
+            std::uint32_t left_;
+            std::uint32_t right_;
+        } u32_;
+    };
+
+    static_assert(sizeof(invocation_counter) == sizeof(std::uint64_t));
+
+    std::vector<invocation_counter>         invocationCounter_;
+
+    std::vector<contract>                   contracts_;
+
+    std::int64_t                            firstContractIndex_;
+
+    std::mutex                              mutex_;
+
+    std::atomic<std::int32_t>               nextAvail_;
+    
+    std::atomic<std::uint64_t>              preferenceFlags_;
+
+};
 
 
 #include "./work_contract.h"
 
 
 //=============================================================================
-inline maniscalco::system::work_contract_group::work_contract_group
+work_contract_group::work_contract_group
 (
     std::int64_t capacity
 ):
@@ -121,7 +114,7 @@ inline maniscalco::system::work_contract_group::work_contract_group
 
 
 //=============================================================================
-inline auto maniscalco::system::work_contract_group::create_contract
+auto work_contract_group::create_contract
 (
     std::function<void()> function
 ) -> work_contract
@@ -131,7 +124,7 @@ inline auto maniscalco::system::work_contract_group::create_contract
 
 
 //=============================================================================
-inline auto maniscalco::system::work_contract_group::create_contract
+auto work_contract_group::create_contract
 (
     std::function<void()> function,
     std::function<void()> surrender
@@ -151,7 +144,7 @@ inline auto maniscalco::system::work_contract_group::create_contract
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::surrender
+inline void work_contract_group::surrender
 (
     work_contract const & workContract
 )
@@ -163,7 +156,7 @@ inline void maniscalco::system::work_contract_group::surrender
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::invoke
+inline void work_contract_group::invoke
 (
     work_contract const & workContract
 )
@@ -175,7 +168,7 @@ inline void maniscalco::system::work_contract_group::invoke
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::increment_contract_count
+inline void work_contract_group::increment_contract_count
 (
     std::int64_t current
 )
@@ -190,7 +183,7 @@ inline void maniscalco::system::work_contract_group::increment_contract_count
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::service_contracts
+inline void work_contract_group::service_contracts
 (
 )
 {
@@ -208,7 +201,7 @@ inline void maniscalco::system::work_contract_group::service_contracts
 
 
 //=============================================================================
-inline std::int64_t maniscalco::system::work_contract_group::decrement_contract_count_right_preference
+inline std::int64_t work_contract_group::decrement_contract_count_right_preference
 (
     std::int64_t parent
 )
@@ -223,7 +216,7 @@ inline std::int64_t maniscalco::system::work_contract_group::decrement_contract_
 
 
 //=============================================================================
-inline std::int64_t maniscalco::system::work_contract_group::decrement_contract_count_left_preference
+inline std::int64_t work_contract_group::decrement_contract_count_left_preference
 (
     std::int64_t parent
 )
@@ -238,7 +231,7 @@ inline std::int64_t maniscalco::system::work_contract_group::decrement_contract_
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::process_contract
+inline void work_contract_group::process_contract
 (
     std::int64_t parent
 )
@@ -259,13 +252,4 @@ inline void maniscalco::system::work_contract_group::process_contract
     flags = nextAvail_.load();
     nextAvail_ = contractId;
     contract.work_ = contract.surrender_ = nullptr;
-}
-
-
-//=============================================================================
-inline std::size_t maniscalco::system::work_contract_group::get_capacity
-(
-) const
-{
-    return contracts_.size();
 }

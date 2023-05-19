@@ -1,5 +1,6 @@
 #include "./thread_pool.h"
 
+#include <library/system.h>
 #include <range/v3/view/enumerate.hpp>
 
 
@@ -19,10 +20,12 @@ maniscalco::system::thread_pool::thread_pool
                 {
                     try
                     {
+                        if (config.cpuId_.has_value())
+                            set_cpu_affinity(config.cpuId_.value());
+
                         if (config.initializeHandler_)
                             config.initializeHandler_();
-                        while (!stopToken.stop_requested())
-                            config.function_(stopToken);
+                        config.function_(stopToken);
                         if (config.terminateHandler_)
                             config.terminateHandler_();
                     }
@@ -45,7 +48,7 @@ void maniscalco::system::thread_pool::stop
     // issue terminate to all worker threads
 )
 {
-    stop(synchronicity_mode::async);
+    stop(synchronization_mode::async);
 }
 
 
@@ -54,13 +57,13 @@ void maniscalco::system::thread_pool::stop
 (
     // issue terminate to all worker threads. 
     // waits for all threads to terminate if waitForTerminationComplete is true
-    synchronicity_mode stopMode
+    synchronization_mode stopMode
 )
 {       
     for (auto & thread : threads_)
         thread.request_stop();
 
-    if (stopMode == synchronicity_mode::blocking)
+    if (stopMode == synchronization_mode::blocking)
         for (auto & thread : threads_)
             if (thread.joinable())
                 thread.join();
