@@ -57,6 +57,19 @@ private:
         work_contract const &
     );
 
+    bool update
+    (
+        work_contract &,
+        std::function<void()>
+    );
+
+    bool update
+    (
+        work_contract &,
+        std::function<void()>,
+        std::function<void()>
+    );
+
     std::int64_t decrement_contract_count_left_preference(std::int64_t);
 
     std::int64_t decrement_contract_count_right_preference(std::int64_t);
@@ -252,4 +265,33 @@ inline void work_contract_group::process_contract
     flags = nextAvail_.load();
     nextAvail_ = contractId;
     contract.work_ = contract.surrender_ = nullptr;
+}
+
+
+//=============================================================================
+inline bool work_contract_group::update
+(
+    work_contract & workContract,
+    std::function<void()> function
+)
+{
+    auto & contract = contracts_[workContract.get_id()];
+    contract.work_ = function;
+    contract.surrender_ = nullptr;
+    return true;
+}
+
+
+//=============================================================================
+inline bool work_contract_group::update
+(
+    work_contract & workContract,
+    std::function<void()> function,
+    std::function<void()> surrender
+)
+{
+    auto & contract = contracts_[workContract.get_id()];
+    contract.work_ = function;
+    contract.surrender_ = surrender;
+    return true;
 }
