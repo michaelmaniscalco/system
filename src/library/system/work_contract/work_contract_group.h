@@ -267,11 +267,12 @@ inline void maniscalco::system::work_contract_group::process_contract
         return;
     }
 
-    contract.surrender_();
+    if (contract.surrender_)
+        std::exchange(contract.surrender_, nullptr)();
     std::lock_guard lockGuard(mutex_);
     flags = nextAvail_.load();
     nextAvail_ = contractId;
-    contract.work_ = contract.surrender_ = nullptr;
+    contract.work_ = nullptr;
 }
 
 
