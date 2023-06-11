@@ -14,6 +14,8 @@ namespace maniscalco::system
     {
     public:
 
+        using id_type = std::uint32_t;
+
         work_contract() = default;
         ~work_contract();
 
@@ -33,7 +35,7 @@ namespace maniscalco::system
 
         operator bool() const;
 
-        std::size_t get_id() const;
+        id_type get_id() const;
 
         bool update
         (
@@ -53,13 +55,14 @@ namespace maniscalco::system
         work_contract
         (
             work_contract_group *, 
-            std::size_t
+            id_type
         );
 
         work_contract_group *   owner_{};
 
-        std::size_t             id_{};
-    };
+        id_type                 id_{};
+
+    }; // class work_contract
 
 } // namespace maniscalco::system
 
@@ -71,7 +74,7 @@ namespace maniscalco::system
 inline maniscalco::system::work_contract::work_contract
 (
     work_contract_group * owner, 
-    std::size_t id
+    id_type id
 ):
     owner_(owner),
     id_(id)
@@ -119,9 +122,9 @@ inline maniscalco::system::work_contract::~work_contract
 
 
 //=============================================================================
-inline std::size_t maniscalco::system::work_contract::get_id
+inline auto maniscalco::system::work_contract::get_id
 (
-) const
+) const -> id_type
 {
     return id_;
 }

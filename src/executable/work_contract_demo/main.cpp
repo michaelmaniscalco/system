@@ -129,7 +129,6 @@ void measure_multithreaded_concurrent_contracts
     static auto constexpr max_concurrent_contracts = 32;
     static std::vector<std::size_t> contractId;
 
-    //srand(std::chrono::system_clock::now().time_since_epoch().count());
     static auto once = [&]()
             {
                 for (auto i = 0; i < max_contracts; ++i)
@@ -148,11 +147,9 @@ void measure_multithreaded_concurrent_contracts
     maniscalco::system::work_contract_group workContractGroup(max_contracts);
     std::atomic<std::size_t> totalTaskCount;
     thread_local std::size_t taskCount;
-    std::vector<std::atomic<std::size_t>> count(max_contracts);
     std::vector<maniscalco::system::work_contract> workContracts(max_contracts);
     for (auto i = 0; i < max_contracts; ++i)
-        workContracts[i] = workContractGroup.create_contract([&, index = i]() mutable{++taskCount;// ++count[index]; workContracts[0].invoke();
-                workContracts[index = contractId[index]].invoke(); });
+        workContracts[i] = workContractGroup.create_contract([&, index = i]() mutable{++taskCount; workContracts[index = contractId[index]].invoke();});
 
     // invoke the correct number of concurrent contracts to start things off
     for (auto i = 0; i < max_concurrent_contracts; ++i)

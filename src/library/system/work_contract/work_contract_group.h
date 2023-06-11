@@ -85,8 +85,7 @@ namespace maniscalco::system
 
         union alignas(8) invocation_counter
         {
-            invocation_counter():u64_(){}
-
+            invocation_counter():u64_(){static_assert(sizeof(*this) == sizeof(std::uint64_t));}
             std::atomic<std::uint64_t> u64_;
             struct
             {
@@ -94,8 +93,6 @@ namespace maniscalco::system
                 std::uint32_t right_;
             } u32_;
         };
-
-        static_assert(sizeof(invocation_counter) == sizeof(std::uint64_t));
 
         std::vector<invocation_counter>         invocationCounter_;
 
@@ -105,11 +102,11 @@ namespace maniscalco::system
 
         std::mutex                              mutex_;
 
-        std::atomic<std::int32_t>               nextAvail_;
+        std::atomic<std::uint32_t>              nextAvail_;
         
         std::atomic<std::uint64_t>              preferenceFlags_;
 
-    };
+    }; // class work_contract_group
 
 } // namespace maniscalco::system
 
@@ -159,7 +156,7 @@ inline auto maniscalco::system::work_contract_group::create_contract
     contract.flags_ = 0;
     contract.work_ = function;
     contract.surrender_ = surrender;
-    return work_contract(this, contractId);
+    return {this, contractId};
 }
 
 
@@ -169,8 +166,10 @@ inline void maniscalco::system::work_contract_group::surrender
     work_contract const & workContract
 )
 {
+    static auto constexpr flags_to_set = (contract::surrender_flag | contract::invoke_flag);
+    static auto constexpr flags_mask = (contract::execute_flag | contract::invoke_flag);
     auto contractId = workContract.get_id();
-    if ((contracts_[contractId].flags_.fetch_or((contract::surrender_flag | contract::invoke_flag)) & (contract::execute_flag | contract::invoke_flag)) == 0)
+    if ((contracts_[contractId].flags_.fetch_or(flags_to_set) & flags_mask) == 0)
         increment_contract_count(contractId);
 }
 
@@ -181,8 +180,10 @@ inline void maniscalco::system::work_contract_group::invoke
     work_contract const & workContract
 )
 {
+    static auto constexpr flags_to_set = contract::invoke_flag;
+    static auto constexpr flags_mask = (contract::execute_flag | contract::invoke_flag);
     auto contractId = workContract.get_id();
-    if ((contracts_[contractId].flags_.fetch_or(contract::invoke_flag) & (contract::execute_flag | contract::invoke_flag)) == 0)
+    if ((contracts_[contractId].flags_.fetch_or(flags_to_set) & flags_mask) == 0)
         increment_contract_count(contractId);
 }
 
