@@ -29,24 +29,13 @@ namespace maniscalco::system
 
         void invoke();
 
-        void surrender();
+        bool surrender();
 
         bool is_valid() const;
 
         operator bool() const;
 
         id_type get_id() const;
-
-        bool update
-        (
-            std::function<void()>
-        );
-
-        bool update
-        (
-            std::function<void()>,
-            std::function<void()>
-        );
 
     private:
 
@@ -55,10 +44,13 @@ namespace maniscalco::system
         work_contract
         (
             work_contract_group *, 
+            std::shared_ptr<work_contract_group::surrender_token>,
             id_type
         );
 
         work_contract_group *   owner_{};
+
+        std::shared_ptr<work_contract_group::surrender_token> surrenderToken_;
 
         id_type                 id_{};
 
@@ -66,17 +58,18 @@ namespace maniscalco::system
 
 } // namespace maniscalco::system
 
-
 #include "./work_contract_group.h"
 
 
 //=============================================================================
 inline maniscalco::system::work_contract::work_contract
 (
-    work_contract_group * owner, 
+    work_contract_group * owner,
+    std::shared_ptr<work_contract_group::surrender_token> surrenderToken, 
     id_type id
 ):
     owner_(owner),
+    surrenderToken_(surrenderToken),
     id_(id)
 {
 }
@@ -88,10 +81,12 @@ inline maniscalco::system::work_contract::work_contract
     work_contract && other
 ):
     owner_(other.owner_),
+    surrenderToken_(other.surrenderToken_),
     id_(other.id_)
 {
     other.owner_ = {};
     other.id_ = {};
+    other.surrenderToken_ = {};
 }
 
     
@@ -105,9 +100,11 @@ inline auto maniscalco::system::work_contract::operator =
 
     owner_ = other.owner_;
     id_ = other.id_;
+    surrenderToken_ = other.surrenderToken_;
     
     other.owner_ = {};
     other.id_ = {};
+    other.surrenderToken_ = {};
     return *this;
 }
 
@@ -149,12 +146,11 @@ inline void maniscalco::system::work_contract::operator()
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::surrender
+inline bool maniscalco::system::work_contract::surrender
 (
 )
 {
-    if (owner_)
-        std::exchange(owner_, nullptr)->surrender(*this);
+    return (surrenderToken_) ? surrenderToken_->invoke(*this) : false;
 }
 
 
@@ -173,29 +169,4 @@ inline maniscalco::system::work_contract::operator bool
 ) const
 {
     return is_valid();
-}
-
-
-//=============================================================================
-inline bool maniscalco::system::work_contract::update
-(
-    std::function<void()> function
-)
-{
-    if (owner_)
-        return owner_->update(*this, function);
-    return false;
-}
-
-
-//=============================================================================
-inline bool maniscalco::system::work_contract::update
-(
-    std::function<void()> function,
-    std::function<void()> surrender
-)
-{
-    if (owner_)
-        return owner_->update(*this, function, surrender);
-    return false;
 }

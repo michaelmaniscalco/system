@@ -17,10 +17,14 @@ namespace maniscalco::system
     {
     public:
 
+        class surrender_token;
+
         work_contract_group
         (
             std::int64_t
         );
+
+        ~work_contract_group();
 
         work_contract create_contract
         (
@@ -40,6 +44,7 @@ namespace maniscalco::system
     private:
 
         friend class work_contract;
+        friend class surrender_token;
 
         struct contract
         {
@@ -62,19 +67,6 @@ namespace maniscalco::system
             work_contract const &
         );
 
-        bool update
-        (
-            work_contract &,
-            std::function<void()>
-        );
-
-        bool update
-        (
-            work_contract &,
-            std::function<void()>,
-            std::function<void()>
-        );
-
         std::int64_t decrement_contract_count_left_preference(std::int64_t);
 
         std::int64_t decrement_contract_count_right_preference(std::int64_t);
@@ -94,19 +86,40 @@ namespace maniscalco::system
             } u32_;
         };
 
-        std::vector<invocation_counter>         invocationCounter_;
+        std::vector<invocation_counter>                 invocationCounter_;
 
-        std::vector<contract>                   contracts_;
+        std::vector<contract>                           contracts_;
 
-        std::int64_t                            firstContractIndex_;
+        std::vector<std::shared_ptr<surrender_token>>   surrenderToken_;
 
-        std::mutex                              mutex_;
+        std::int64_t                                    firstContractIndex_;
 
-        std::atomic<std::uint32_t>              nextAvail_;
+        std::mutex                                      mutex_;
+
+        std::atomic<std::uint32_t>                      nextAvail_;
         
-        std::atomic<std::uint64_t>              preferenceFlags_;
+        std::atomic<std::uint64_t>                      preferenceFlags_;
 
     }; // class work_contract_group
+
+
+
+    class work_contract_group::surrender_token
+    {
+    public:
+
+        surrender_token
+        (
+            work_contract_group *
+        );
+        
+        std::mutex mutex_;
+        work_contract_group * workContractGroup_{};
+
+        bool invoke(work_contract const &);
+
+        void orphan();
+    };
 
 } // namespace maniscalco::system
 
@@ -121,12 +134,25 @@ inline maniscalco::system::work_contract_group::work_contract_group
 ):
     invocationCounter_(capacity - 1), 
     contracts_(capacity),
+    surrenderToken_(capacity),
     firstContractIndex_(capacity - 1)
 {
     for (auto && [index, contract] : ranges::v3::views::enumerate(contracts_))
         contract.flags_ = (index + 1);
     contracts_.back().flags_ = ~0;
     nextAvail_ = 0;
+}
+
+
+//=============================================================================
+inline maniscalco::system::work_contract_group::~work_contract_group
+(
+)
+{
+    std::lock_guard lockGuard(mutex_);
+    for (auto & surrenderToken : surrenderToken_)
+        if ((bool)surrenderToken)
+            surrenderToken->orphan();
 }
 
 
@@ -156,7 +182,8 @@ inline auto maniscalco::system::work_contract_group::create_contract
     contract.flags_ = 0;
     contract.work_ = function;
     contract.surrender_ = surrender;
-    return {this, contractId};
+    auto surrenderToken = surrenderToken_[contractId] = std::make_shared<surrender_token>(this);
+    return {this, surrenderToken, contractId};
 }
 
 
@@ -274,6 +301,7 @@ inline void maniscalco::system::work_contract_group::process_contract
     flags = nextAvail_.load();
     nextAvail_ = contractId;
     contract.work_ = nullptr;
+    surrenderToken_[contractId] = {};
 }
 
 
@@ -287,29 +315,36 @@ inline std::size_t maniscalco::system::work_contract_group::get_capacity
 
 
 //=============================================================================
-inline bool maniscalco::system::work_contract_group::update
+inline maniscalco::system::work_contract_group::surrender_token::surrender_token
 (
-    work_contract & workContract,
-    std::function<void()> function
-)
+    work_contract_group * workContractGroup
+):
+    workContractGroup_(workContractGroup)
 {
-    auto & contract = contracts_[workContract.get_id()];
-    contract.work_ = function;
-    contract.surrender_ = nullptr;
-    return true;
 }
 
 
 //=============================================================================
-inline bool maniscalco::system::work_contract_group::update
+inline bool maniscalco::system::work_contract_group::surrender_token::invoke
 (
-    work_contract & workContract,
-    std::function<void()> function,
-    std::function<void()> surrender
+    work_contract const & workContract
 )
 {
-    auto & contract = contracts_[workContract.get_id()];
-    contract.work_ = function;
-    contract.surrender_ = surrender;
-    return true;
+    std::lock_guard lockGuard(mutex_);
+    if (auto workContractGroup = std::exchange(workContractGroup_, nullptr); workContractGroup != nullptr)
+    {
+        workContractGroup->surrender(workContract);
+        return true;
+    }
+    return false;
+}
+
+
+//=============================================================================
+inline void maniscalco::system::work_contract_group::surrender_token::orphan
+(
+)
+{
+    std::lock_guard lockGuard(mutex_);
+    workContractGroup_ = nullptr;
 }

@@ -30,6 +30,27 @@ void bare_minimum_example
 
 
 //=============================================================================
+void work_contract_after_group_destroyed_test
+(
+    // test.  destroy the owning work contract group PRIOR to the SURRENDER
+    // of the work contract.  Note: INVOCATION of the work contract is UB once
+    // the owning work contract group has been destroyed.  However, all work contracts
+    // will invoke their surrender function when destroyed.  We want to insure that this
+    // surrender FAILS in the case where the work contract group has already been destroyed.
+)
+{
+    auto workContractGroup = std::make_unique<maniscalco::system::work_contract_group>(8);
+    auto workContract = workContractGroup->create_contract([](){std::cout << "contract invoked\n";}, nullptr);
+
+    workContract.invoke();
+    workContractGroup->service_contracts();
+
+    workContractGroup.reset();
+
+}
+
+
+//=============================================================================
 void basic_example
 (
     // create a work contract group
@@ -192,9 +213,10 @@ int main
     char const **
 )
 {    
-    bare_minimum_example();
-    basic_example();
-    multithreaded_example();
+    work_contract_after_group_destroyed_test();
+ //   bare_minimum_example();
+ //   basic_example();
+ //   multithreaded_example();
 
     static auto constexpr num_loops = 10;
     for (auto i = 0; i < num_loops; ++i)
