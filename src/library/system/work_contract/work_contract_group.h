@@ -37,9 +37,11 @@ namespace maniscalco::system
             std::function<void()>
         );
 
-        void service_contracts();
+        std::size_t service_contracts();
 
         std::size_t get_capacity() const;
+
+        std::size_t get_active_contract_count() const;
 
     private:
 
@@ -79,11 +81,16 @@ namespace maniscalco::system
         {
             invocation_counter():u64_(){static_assert(sizeof(*this) == sizeof(std::uint64_t));}
             std::atomic<std::uint64_t> u64_;
-            struct
+            struct parts
             {
                 std::uint32_t left_;
                 std::uint32_t right_;
             } u32_;
+            std::uint64_t get_count() const
+            {
+                auto n = u64_.load();
+                return ((n >> 32) + (n & 0xffffffff));
+            }
         };
 
         std::vector<invocation_counter>                 invocationCounter_;
@@ -216,6 +223,15 @@ inline void maniscalco::system::work_contract_group::invoke
 
 
 //=============================================================================
+inline std::size_t maniscalco::system::work_contract_group::get_active_contract_count
+(
+) const
+{
+    return invocationCounter_[0].get_count();
+}
+
+
+//=============================================================================
 inline void maniscalco::system::work_contract_group::increment_contract_count
 (
     std::int64_t current
@@ -231,7 +247,7 @@ inline void maniscalco::system::work_contract_group::increment_contract_count
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract_group::service_contracts
+inline std::size_t maniscalco::system::work_contract_group::service_contracts
 (
 )
 {
@@ -245,6 +261,7 @@ inline void maniscalco::system::work_contract_group::service_contracts
         }
         process_contract(parent);
     }
+    return invocationCounter_[0].get_count();
 }
 
 
