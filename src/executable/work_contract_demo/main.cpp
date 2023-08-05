@@ -24,7 +24,7 @@ void bare_minimum_example
     maniscalco::system::work_contract_group workContractGroup(8);
     auto workContract = workContractGroup.create_contract([](){std::cout << "contract invoked\n";}, nullptr);
     workContract.invoke();
-    workContractGroup.service_contracts();
+    workContractGroup.execute_contracts();
 }
 
 
@@ -38,14 +38,12 @@ void work_contract_after_group_destroyed_test
     // surrender FAILS in the case where the work contract group has already been destroyed.
 )
 {
-    auto workContractGroup = std::make_unique<maniscalco::system::work_contract_group>(8);
+    auto workContractGroup = std::make_unique<maniscalco::system::waitable_work_contract_group>(8);
     auto workContract = workContractGroup->create_contract([](){std::cout << "contract invoked\n";}, nullptr);
 
     workContract.invoke();
-    workContractGroup->service_contracts();
-
+    workContractGroup->execute_contracts();
     workContractGroup.reset();
-
 }
 
 
@@ -68,7 +66,7 @@ void basic_example
     std::jthread workerThread([&](auto const & stopToken)
             {
                 while (!stopToken.stop_requested()) 
-                    workContractGroup.service_contracts();
+                    workContractGroup.execute_contracts(std::chrono::milliseconds(10));
             });
 
     std::atomic<std::size_t> invokeCounter{16};
@@ -120,10 +118,10 @@ void measure_multithreaded_concurrent_contracts
             }();
 
     // enable each contract to invoke the next random contract upon its own completion.
-    maniscalco::system::work_contract_group workContractGroup(max_contracts);
+    maniscalco::system::waitable_work_contract_group workContractGroup(max_contracts);
     std::atomic<std::size_t> totalTaskCount;
     thread_local std::size_t taskCount;
-    std::vector<maniscalco::system::work_contract> workContracts(max_contracts);
+    std::vector<maniscalco::system::waitable_work_contract> workContracts(max_contracts);
     for (auto i = 0; i < max_contracts; ++i)
         workContracts[i] = workContractGroup.create_contract([&, index = i]() mutable{++taskCount; workContracts[index = contractId[index]].invoke();});
 
@@ -142,7 +140,7 @@ void measure_multithreaded_concurrent_contracts
                 ) mutable
                 {
                     while (!stopToken.stop_requested()) 
-                        workContractGroup.service_contracts(); 
+                        workContractGroup.execute_contracts(); 
                     totalTaskCount += taskCount;
                     taskCount = 0;
                 };
@@ -168,9 +166,36 @@ int main
     char const **
 )
 {    
-    work_contract_after_group_destroyed_test();
+
+    {
+    // create a work_contract_group
+    static auto constexpr max_contracts = (1 << 20);
+    maniscalco::system::non_waitable_work_contract_group workContractGroup(max_contracts);
+
+    // create a work_contract
+    auto counter = 0;
+    auto workContract = workContractGroup.create_contract(
+            [&](){std::cout << "contract executed: " << ++counter << "\n";},
+            [](){std::cout << "contract surrendered\n";});
+
+        for (auto i = 0; i < 10; ++i)
+        {
+                // invoke the work_contract
+            workContract.invoke();
+
+            // execute invoked work_contracts
+            workContractGroup.execute_contracts();
+        }
+       // surrender the work_contract
+       workContract.surrender();
+
+       // execute invoked work_contracts
+       workContractGroup.execute_contracts();
+}
+
     bare_minimum_example();
     basic_example();
+    work_contract_after_group_destroyed_test();
 
     static auto constexpr num_loops = 10;
     for (auto i = 0; i < num_loops; ++i)

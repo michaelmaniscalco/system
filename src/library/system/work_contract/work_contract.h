@@ -7,9 +7,11 @@
 namespace maniscalco::system
 {
 
-    class work_contract_group;
+    enum class work_contract_mode : std::uint32_t;
+    template <work_contract_mode> class work_contract_group;
 
 
+    template <work_contract_mode T>
     class work_contract
     {
     public:
@@ -39,22 +41,26 @@ namespace maniscalco::system
 
     private:
 
-        friend class work_contract_group;
+        friend class work_contract_group<T>;
 
         work_contract
         (
-            work_contract_group *, 
-            std::shared_ptr<work_contract_group::surrender_token>,
+            work_contract_group<T> *, 
+            std::shared_ptr<typename work_contract_group<T>::surrender_token>,
             id_type
         );
 
-        work_contract_group *   owner_{};
+        work_contract_group<T> *   owner_{};
 
-        std::shared_ptr<work_contract_group::surrender_token> surrenderToken_;
+        std::shared_ptr<typename work_contract_group<T>::surrender_token> surrenderToken_;
 
         id_type                 id_{};
 
     }; // class work_contract
+
+
+    using waitable_work_contract = work_contract<work_contract_mode::waitable>;
+    using non_waitable_work_contract = work_contract<work_contract_mode::waitable>;
 
 } // namespace maniscalco::system
 
@@ -62,10 +68,11 @@ namespace maniscalco::system
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::work_contract
+template <maniscalco::system::work_contract_mode T>
+inline maniscalco::system::work_contract<T>::work_contract
 (
-    work_contract_group * owner,
-    std::shared_ptr<work_contract_group::surrender_token> surrenderToken, 
+    work_contract_group<T> * owner,
+    std::shared_ptr<typename work_contract_group<T>::surrender_token> surrenderToken, 
     id_type id
 ):
     owner_(owner),
@@ -76,7 +83,8 @@ inline maniscalco::system::work_contract::work_contract
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::work_contract
+template <maniscalco::system::work_contract_mode T>
+inline maniscalco::system::work_contract<T>::work_contract
 (
     work_contract && other
 ):
@@ -91,7 +99,8 @@ inline maniscalco::system::work_contract::work_contract
 
     
 //=============================================================================
-inline auto maniscalco::system::work_contract::operator =
+template <maniscalco::system::work_contract_mode T>
+inline auto maniscalco::system::work_contract<T>::operator =
 (
     work_contract && other
 ) -> work_contract &
@@ -110,7 +119,8 @@ inline auto maniscalco::system::work_contract::operator =
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::~work_contract
+template <maniscalco::system::work_contract_mode T>
+inline maniscalco::system::work_contract<T>::~work_contract
 (
 )
 {
@@ -119,7 +129,8 @@ inline maniscalco::system::work_contract::~work_contract
 
 
 //=============================================================================
-inline auto maniscalco::system::work_contract::get_id
+template <maniscalco::system::work_contract_mode T>
+inline auto maniscalco::system::work_contract<T>::get_id
 (
 ) const -> id_type
 {
@@ -128,7 +139,8 @@ inline auto maniscalco::system::work_contract::get_id
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::invoke
+template <maniscalco::system::work_contract_mode T>
+inline void maniscalco::system::work_contract<T>::invoke
 (
 )
 {
@@ -137,7 +149,8 @@ inline void maniscalco::system::work_contract::invoke
 
 
 //=============================================================================
-inline void maniscalco::system::work_contract::operator()
+template <maniscalco::system::work_contract_mode T>
+inline void maniscalco::system::work_contract<T>::operator()
 (
 )
 {
@@ -146,16 +159,19 @@ inline void maniscalco::system::work_contract::operator()
 
 
 //=============================================================================
-inline bool maniscalco::system::work_contract::surrender
+template <maniscalco::system::work_contract_mode T>
+inline bool maniscalco::system::work_contract<T>::surrender
 (
 )
 {
+    owner_ = {};
     return (surrenderToken_) ? surrenderToken_->invoke(*this) : false;
 }
 
 
 //=============================================================================
-inline bool maniscalco::system::work_contract::is_valid
+template <maniscalco::system::work_contract_mode T>
+inline bool maniscalco::system::work_contract<T>::is_valid
 (
 ) const
 {
@@ -164,7 +180,8 @@ inline bool maniscalco::system::work_contract::is_valid
 
 
 //=============================================================================
-inline maniscalco::system::work_contract::operator bool
+template <maniscalco::system::work_contract_mode T>
+inline maniscalco::system::work_contract<T>::operator bool
 (
 ) const
 {

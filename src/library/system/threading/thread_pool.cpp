@@ -43,6 +43,15 @@ maniscalco::system::thread_pool::thread_pool
 
 
 //=============================================================================
+maniscalco::system::thread_pool::~thread_pool
+(
+)
+{
+    stop(synchronization_mode::async);
+}
+
+
+//=============================================================================
 void maniscalco::system::thread_pool::stop
 (
     // issue terminate to all worker threads

@@ -23,14 +23,14 @@ void example
 
     // create work contract group
     static auto constexpr max_number_of_contracts = 32;
-    maniscalco::system::work_contract_group workContractGroup(max_number_of_contracts);
-    maniscalco::system::work_contract workContract;
+    maniscalco::system::non_waitable_work_contract_group workContractGroup(max_number_of_contracts);
+    maniscalco::system::non_waitable_work_contract workContract;
 
     // create worker threads to service work contracts asynchronously
     auto max_number_of_worker_threads = std::thread::hardware_concurrency() / 2;
     std::vector<maniscalco::system::thread_pool::thread_configuration> threadConfigurations(max_number_of_worker_threads);
     for (auto & threadConfiguration : threadConfigurations)
-        threadConfiguration.function_ = [&](auto const & stopToken){while (!stopToken.stop_requested()) workContractGroup.service_contracts();};
+        threadConfiguration.function_ = [&](auto const & stopToken){while (!stopToken.stop_requested()) workContractGroup.execute_contracts();};
     maniscalco::system::thread_pool threadPool({.threads_ = threadConfigurations});
 
     // crude message stream ...

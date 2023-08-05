@@ -38,6 +38,8 @@ namespace maniscalco::system
             configuration const &
         );
 
+        ~thread_pool();
+
         void stop();
 
         void stop(synchronization_mode);
