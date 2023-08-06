@@ -14,17 +14,21 @@
 #include <fmt/format.h>
 
 
+using work_contract_group_type = maniscalco::system::waitable_work_contract_group;
+using work_contract_type = maniscalco::system::work_contract<work_contract_group_type::mode>;
+
+
 //=============================================================================
 void example
 (
 )
 {
-    static auto constexpr num_messages = 1024;
+    static auto constexpr num_messages = 128;
 
     // create work contract group
     static auto constexpr max_number_of_contracts = 32;
-    maniscalco::system::non_waitable_work_contract_group workContractGroup(max_number_of_contracts);
-    maniscalco::system::non_waitable_work_contract workContract;
+    work_contract_group_type workContractGroup(max_number_of_contracts);
+    work_contract_type workContract;
 
     // create worker threads to service work contracts asynchronously
     auto max_number_of_worker_threads = std::thread::hardware_concurrency() / 2;
@@ -54,7 +58,10 @@ void example
                         workContract.invoke();
                 }
                 if (message.empty())
+                {
+                    std::cout << "got termination message\n";
                     done = true;
+                }
                 else
                     std::cout << "Got message: " << message << "\n";
             };
@@ -81,7 +88,9 @@ void example
 
     // wait for all the messages to be received
     while (!done)
-        std::this_thread::yield();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    workContractGroup.stop();
+    threadPool.stop();
 }
 
 

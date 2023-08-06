@@ -12,6 +12,9 @@
 
 #include <library/system.h>
 
+using work_contract_group_type = maniscalco::system::basic_work_contract_group;
+using work_contract_type = maniscalco::system::work_contract<work_contract_group_type::mode>;
+
 
 //=============================================================================
 void bare_minimum_example
@@ -38,7 +41,7 @@ void work_contract_after_group_destroyed_test
     // surrender FAILS in the case where the work contract group has already been destroyed.
 )
 {
-    auto workContractGroup = std::make_unique<maniscalco::system::waitable_work_contract_group>(8);
+    auto workContractGroup = std::make_unique<work_contract_group_type>(8);
     auto workContract = workContractGroup->create_contract([](){std::cout << "contract invoked\n";}, nullptr);
 
     workContract.invoke();
@@ -73,7 +76,7 @@ void basic_example
     std::atomic<bool> surrendered{false};
 
     // create a work contract from the work contract group
-    maniscalco::system::work_contract workContract = workContractGroup.create_contract(
+    auto workContract = workContractGroup.create_contract(
             [&](){std::cout << "invokeCounter = " << --invokeCounter << "\n";},         // this is the async function
             [&](){std::cout << "work contract surrendered\n"; surrendered = true;});    // this is the one-shot surrender function
                     
@@ -98,9 +101,10 @@ void measure_multithreaded_concurrent_contracts
 )
 {
     static auto const num_worker_threads = std::thread::hardware_concurrency() / 2;
+    std::cout << "num threads = " << num_worker_threads << "\n";
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
     static auto constexpr max_contracts = (1 << 20);
-    static auto constexpr max_concurrent_contracts = 32;
+    static auto constexpr max_concurrent_contracts = 256;
     static std::vector<std::size_t> contractId;
 
     static auto once = [&]()
@@ -118,10 +122,10 @@ void measure_multithreaded_concurrent_contracts
             }();
 
     // enable each contract to invoke the next random contract upon its own completion.
-    maniscalco::system::waitable_work_contract_group workContractGroup(max_contracts);
+    work_contract_group_type workContractGroup(max_contracts);
     std::atomic<std::size_t> totalTaskCount;
     thread_local std::size_t taskCount;
-    std::vector<maniscalco::system::waitable_work_contract> workContracts(max_contracts);
+    std::vector<work_contract_type> workContracts(max_contracts);
     for (auto i = 0; i < max_contracts; ++i)
         workContracts[i] = workContractGroup.create_contract([&, index = i]() mutable{++taskCount; workContracts[index = contractId[index]].invoke();});
 
@@ -170,7 +174,7 @@ int main
     {
     // create a work_contract_group
     static auto constexpr max_contracts = (1 << 20);
-    maniscalco::system::non_waitable_work_contract_group workContractGroup(max_contracts);
+    work_contract_group_type workContractGroup(max_contracts);
 
     // create a work_contract
     auto counter = 0;

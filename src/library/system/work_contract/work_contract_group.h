@@ -129,6 +129,8 @@ namespace maniscalco::system
         std::atomic<std::uint64_t>                      preferenceFlags_;
 
         std::condition_variable mutable                 conditionVariable_;
+
+        bool                                            stopped_{false};
     }; // class work_contract_group
 
 
@@ -198,6 +200,8 @@ inline void maniscalco::system::work_contract_group<T>::stop
 (
 )
 {
+    std::lock_guard lockGuard(mutex_);
+    stopped_ = true;
     for (auto & surrenderToken : surrenderToken_)
         if ((bool)surrenderToken)
             surrenderToken->orphan();
@@ -339,7 +343,7 @@ inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
         if (!get_active_contract_count())
         {
             std::unique_lock uniqueLock(mutex_);
-            conditionVariable_.wait(uniqueLock, [&]{return get_active_contract_count();});
+            conditionVariable_.wait(uniqueLock, [&]{return ((stopped_) || (get_active_contract_count()));});
         }
     }
 
