@@ -62,6 +62,8 @@ namespace maniscalco::system
     using waitable_work_contract = work_contract<work_contract_mode::waitable>;
     using non_waitable_work_contract = work_contract<work_contract_mode::waitable>;
 
+    using basic_work_contract = non_waitable_work_contract;
+
 } // namespace maniscalco::system
 
 #include "./work_contract_group.h"

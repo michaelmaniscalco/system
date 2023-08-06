@@ -28,6 +28,9 @@ namespace maniscalco::system
 
         static auto constexpr mode = T;
         static auto constexpr waitable = (mode == work_contract_mode::waitable);
+
+        using work_contract_type = work_contract<mode>;
+
         class surrender_token;
 
         work_contract_group
@@ -37,12 +40,12 @@ namespace maniscalco::system
 
         ~work_contract_group();
 
-        work_contract<T> create_contract
+        work_contract_type create_contract
         (
             std::function<void()>
         );
 
-        work_contract<T> create_contract
+        work_contract_type create_contract
         (
             std::function<void()>,
             std::function<void()>
@@ -79,12 +82,12 @@ namespace maniscalco::system
 
         void invoke
         (
-            work_contract<T> const &
+            work_contract_type const &
         );
 
         void surrender
         (
-            work_contract<T> const &
+            work_contract_type const &
         );
 
         std::int64_t decrement_contract_count_left_preference(std::int64_t);
@@ -134,15 +137,18 @@ namespace maniscalco::system
     {
     public:
 
+        using work_contract_group_type = work_contract_group<T>;
+        using work_contract_type = typename work_contract_group_type::work_contract_type;
+
         surrender_token
         (
-            work_contract_group<T> *
+            work_contract_group_type *
         );
         
         std::mutex mutex_;
-        work_contract_group<T> * workContractGroup_{};
+        work_contract_group_type * workContractGroup_{};
 
-        bool invoke(work_contract<T> const &);
+        bool invoke(work_contract_type const &);
 
         void orphan();
     };
@@ -150,6 +156,7 @@ namespace maniscalco::system
 
     using waitable_work_contract_group = work_contract_group<work_contract_mode::waitable>;
     using non_waitable_work_contract_group = work_contract_group<work_contract_mode::waitable>;
+    using basic_work_contract_group = non_waitable_work_contract_group;
 
 } // namespace maniscalco::system
 
@@ -203,7 +210,7 @@ template <maniscalco::system::work_contract_mode T>
 inline auto maniscalco::system::work_contract_group<T>::create_contract
 (
     std::function<void()> function
-) -> work_contract<T>
+) -> work_contract_type
 {
     return create_contract(function, nullptr);
 }
@@ -215,7 +222,7 @@ inline auto maniscalco::system::work_contract_group<T>::create_contract
 (
     std::function<void()> function,
     std::function<void()> surrender
-) -> work_contract<T>
+) -> work_contract_type
 {
     std::lock_guard lockGuard(mutex_);
     auto contractId = nextAvail_.load();
@@ -235,7 +242,7 @@ inline auto maniscalco::system::work_contract_group<T>::create_contract
 template <maniscalco::system::work_contract_mode T>
 inline void maniscalco::system::work_contract_group<T>::surrender
 (
-    work_contract<T> const & workContract
+    work_contract_type const & workContract
 )
 {
     static auto constexpr flags_to_set = (contract::surrender_flag | contract::invoke_flag);
@@ -250,7 +257,7 @@ inline void maniscalco::system::work_contract_group<T>::surrender
 template <maniscalco::system::work_contract_mode T>
 inline void maniscalco::system::work_contract_group<T>::invoke
 (
-    work_contract<T> const & workContract
+    work_contract_type const & workContract
 )
 {
     static auto constexpr flags_to_set = contract::invoke_flag;
@@ -435,7 +442,7 @@ inline maniscalco::system::work_contract_group<T>::surrender_token::surrender_to
 template <maniscalco::system::work_contract_mode T>
 inline bool maniscalco::system::work_contract_group<T>::surrender_token::invoke
 (
-    work_contract<T> const & workContract
+    work_contract_type const & workContract
 )
 {
     std::lock_guard lockGuard(mutex_);
