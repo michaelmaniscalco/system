@@ -8,7 +8,9 @@ namespace maniscalco::system
 {
 
     enum class work_contract_mode : std::uint32_t;
-    template <work_contract_mode> class work_contract_group;
+    
+    template <work_contract_mode> 
+    class work_contract_group;
 
 
     template <work_contract_mode T>
@@ -35,7 +37,7 @@ namespace maniscalco::system
 
         bool is_valid() const;
 
-        operator bool() const;
+        explicit operator bool() const;
 
         id_type get_id() const;
 

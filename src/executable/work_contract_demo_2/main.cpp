@@ -34,7 +34,7 @@ void example
     auto max_number_of_worker_threads = std::thread::hardware_concurrency() / 2;
     std::vector<maniscalco::system::thread_pool::thread_configuration> threadConfigurations(max_number_of_worker_threads);
     for (auto & threadConfiguration : threadConfigurations)
-        threadConfiguration.function_ = [&](auto const & stopToken){while (!stopToken.stop_requested()) workContractGroup.execute_contracts();};
+        threadConfiguration.function_ = [&](auto const & stopToken){while (!stopToken.stop_requested()) workContractGroup.execute_next_contract();};
     maniscalco::system::thread_pool threadPool({.threads_ = threadConfigurations});
 
     // crude message stream ...

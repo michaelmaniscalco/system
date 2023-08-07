@@ -12,7 +12,7 @@
 
 #include <library/system.h>
 
-using work_contract_group_type = maniscalco::system::basic_work_contract_group;
+using work_contract_group_type = maniscalco::system::waitable_work_contract_group;
 using work_contract_type = maniscalco::system::work_contract<work_contract_group_type::mode>;
 
 
@@ -24,10 +24,10 @@ void bare_minimum_example
     // however, a mimium example is useful for understading the basic concepts.
 )
 {
-    maniscalco::system::work_contract_group workContractGroup(8);
+    work_contract_group_type workContractGroup(8);
     auto workContract = workContractGroup.create_contract([](){std::cout << "contract invoked\n";}, nullptr);
     workContract.invoke();
-    workContractGroup.execute_contracts();
+    workContractGroup.execute_next_contract();
 }
 
 
@@ -45,7 +45,7 @@ void work_contract_after_group_destroyed_test
     auto workContract = workContractGroup->create_contract([](){std::cout << "contract invoked\n";}, nullptr);
 
     workContract.invoke();
-    workContractGroup->execute_contracts();
+    workContractGroup->execute_next_contract();
     workContractGroup.reset();
 }
 
@@ -63,13 +63,13 @@ void basic_example
 {
     // create work contract group
     static auto constexpr max_number_of_contracts = 32;
-    maniscalco::system::work_contract_group workContractGroup(max_number_of_contracts);
+    work_contract_group_type workContractGroup(max_number_of_contracts);
 
     // create worker thread to service work contracts asynchronously
     std::jthread workerThread([&](auto const & stopToken)
             {
                 while (!stopToken.stop_requested()) 
-                    workContractGroup.execute_contracts(std::chrono::milliseconds(10));
+                    workContractGroup.execute_next_contract(std::chrono::milliseconds(10));
             });
 
     std::atomic<std::size_t> invokeCounter{16};
@@ -101,7 +101,6 @@ void measure_multithreaded_concurrent_contracts
 )
 {
     static auto const num_worker_threads = std::thread::hardware_concurrency() / 2;
-    std::cout << "num threads = " << num_worker_threads << "\n";
     static auto constexpr test_duration = std::chrono::milliseconds(1000);
     static auto constexpr max_contracts = (1 << 20);
     static auto constexpr max_concurrent_contracts = 256;
@@ -144,7 +143,7 @@ void measure_multithreaded_concurrent_contracts
                 ) mutable
                 {
                     while (!stopToken.stop_requested()) 
-                        workContractGroup.execute_contracts(); 
+                        workContractGroup.execute_next_contract(); 
                     totalTaskCount += taskCount;
                     taskCount = 0;
                 };
@@ -188,13 +187,13 @@ int main
             workContract.invoke();
 
             // execute invoked work_contracts
-            workContractGroup.execute_contracts();
+            workContractGroup.execute_next_contract();
         }
        // surrender the work_contract
        workContract.surrender();
 
        // execute invoked work_contracts
-       workContractGroup.execute_contracts();
+       workContractGroup.execute_next_contract();
 }
 
     bare_minimum_example();

@@ -18,7 +18,9 @@ namespace maniscalco::system
         waitable = 1
     };
 
-    template <work_contract_mode> class work_contract;
+
+    template <work_contract_mode> 
+    class work_contract;
 
 
     template <work_contract_mode T = work_contract_mode::waitable>
@@ -51,9 +53,9 @@ namespace maniscalco::system
             std::function<void()>
         );
 
-        std::size_t execute_contracts();
+        std::size_t execute_next_contract();
 
-        std::size_t execute_contracts
+        std::size_t execute_next_contract
         (
             std::chrono::nanoseconds
         ) requires (waitable);
@@ -68,6 +70,11 @@ namespace maniscalco::system
 
         friend class work_contract<T>;
         friend class surrender_token;
+
+        static auto constexpr left_addend = 0x0000000000000001ull;
+        static auto constexpr left_mask = 0x00000000ffffffffull;
+        static auto constexpr right_mask = 0xffffffff00000000ull;
+        static auto constexpr right_addend = 0x0000000100000000ull;
 
         struct contract
         {
@@ -88,11 +95,24 @@ namespace maniscalco::system
         void surrender
         (
             work_contract_type const &
+        );        
+        
+        template <std::size_t>
+        void set_contract_flag
+        (
+            work_contract_type const &
         );
 
-        std::int64_t decrement_contract_count_left_preference(std::int64_t);
+        enum class decrement_preference : std::uint32_t
+        {
+            left = 0,
+            right = 1
+        };
 
-        std::int64_t decrement_contract_count_right_preference(std::int64_t);
+        template <decrement_preference>
+        std::int64_t decrement_contract_count(std::int64_t);
+
+        std::size_t process_contract();
 
         void process_contract(std::int64_t);
 
@@ -249,11 +269,7 @@ inline void maniscalco::system::work_contract_group<T>::surrender
     work_contract_type const & workContract
 )
 {
-    static auto constexpr flags_to_set = (contract::surrender_flag | contract::invoke_flag);
-    static auto constexpr flags_mask = (contract::execute_flag | contract::invoke_flag);
-    auto contractId = workContract.get_id();
-    if ((contracts_[contractId].flags_.fetch_or(flags_to_set) & flags_mask) == 0)
-        increment_contract_count(contractId);
+    set_contract_flag<contract::surrender_flag | contract::invoke_flag>(workContract);
 }
 
 
@@ -264,7 +280,18 @@ inline void maniscalco::system::work_contract_group<T>::invoke
     work_contract_type const & workContract
 )
 {
-    static auto constexpr flags_to_set = contract::invoke_flag;
+    set_contract_flag<contract::invoke_flag>(workContract);
+}
+
+
+//=============================================================================
+template <maniscalco::system::work_contract_mode T>
+template <std::size_t flags_to_set>
+inline void maniscalco::system::work_contract_group<T>::set_contract_flag
+(
+    work_contract_type const & workContract
+)
+{
     static auto constexpr flags_mask = (contract::execute_flag | contract::invoke_flag);
     auto contractId = workContract.get_id();
     if ((contracts_[contractId].flags_.fetch_or(flags_to_set) & flags_mask) == 0)
@@ -292,7 +319,7 @@ inline void maniscalco::system::work_contract_group<T>::increment_contract_count
     current += firstContractIndex_;
     while (current)
     {
-        auto addend = ((current-- & 1ull) ? 0x0000000000000001ull : 0x0000000100000000ull);
+        auto addend = ((current-- & 1ull) ? left_addend : right_addend);
         invocationCounter_[current >>= 1].u64_ += addend;
     }
     if constexpr (waitable)
@@ -304,7 +331,7 @@ inline void maniscalco::system::work_contract_group<T>::increment_contract_count
 
 //=============================================================================
 template <maniscalco::system::work_contract_mode T>
-inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
+inline std::size_t maniscalco::system::work_contract_group<T>::execute_next_contract
 (
     std::chrono::nanoseconds maxWaitTime
 )  requires (waitable)
@@ -317,24 +344,13 @@ inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
             conditionVariable_.wait_for(uniqueLock, maxWaitTime, [&]{return get_active_contract_count();});
         }
     }
-
-    std::uint64_t preferenceFlags = preferenceFlags_++;
-    if (auto parent = (preferenceFlags & 1) ? decrement_contract_count_right_preference(0) : decrement_contract_count_left_preference(0))   
-    {
-        while (parent < firstContractIndex_) 
-        {
-            parent = (parent * 2) + ((preferenceFlags & 1) ? decrement_contract_count_right_preference(parent) : decrement_contract_count_left_preference(parent));
-            preferenceFlags >>= 1;
-        }
-        process_contract(parent);
-    }
-    return invocationCounter_[0].get_count();
+    return process_contract();
 }
 
 
 //=============================================================================
 template <maniscalco::system::work_contract_mode T>
-inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
+inline std::size_t maniscalco::system::work_contract_group<T>::execute_next_contract
 (
 )
 {
@@ -346,13 +362,25 @@ inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
             conditionVariable_.wait(uniqueLock, [&]{return ((stopped_) || (get_active_contract_count()));});
         }
     }
+    return process_contract();
+}
+
+
+//=============================================================================
+template <maniscalco::system::work_contract_mode T>
+inline std::size_t maniscalco::system::work_contract_group<T>::process_contract
+(
+)
+{
+    static auto constexpr right = decrement_preference::right;
+    static auto constexpr left = decrement_preference::left;
 
     std::uint64_t preferenceFlags = preferenceFlags_++;
-    if (auto parent = (preferenceFlags & 1) ? decrement_contract_count_right_preference(0) : decrement_contract_count_left_preference(0))   
+    if (auto parent = (preferenceFlags & 1) ? decrement_contract_count<right>(0) : decrement_contract_count<left>(0))   
     {
         while (parent < firstContractIndex_) 
         {
-            parent = (parent * 2) + ((preferenceFlags & 1) ? decrement_contract_count_right_preference(parent) : decrement_contract_count_left_preference(parent));
+            parent = (parent * 2) + ((preferenceFlags & 1) ? decrement_contract_count<right>(parent) : decrement_contract_count<left>(parent));
             preferenceFlags >>= 1;
         }
         process_contract(parent);
@@ -363,33 +391,23 @@ inline std::size_t maniscalco::system::work_contract_group<T>::execute_contracts
 
 //=============================================================================
 template <maniscalco::system::work_contract_mode T>
-inline std::int64_t maniscalco::system::work_contract_group<T>::decrement_contract_count_right_preference
+template <maniscalco::system::work_contract_group<T>::decrement_preference T_>
+inline std::int64_t maniscalco::system::work_contract_group<T>::decrement_contract_count
 (
     std::int64_t parent
 )
-{   
+{
+    static auto constexpr left_preference = (T_ == decrement_preference::left);
+    static auto constexpr mask = (left_preference) ? left_mask : right_mask;
+    static auto constexpr prefered_addend = (left_preference) ? left_addend : right_addend;
+    static auto constexpr fallback_addend = (left_preference) ? right_addend : left_addend;
+
     auto & invocationCounter = invocationCounter_[parent].u64_;
     auto expected = invocationCounter.load();
-    auto addend = (expected & 0xffffffff00000000ull) ? 0x0000000100000000ull : 0x0000000000000001ull;
+    auto addend = (expected & mask) ? prefered_addend : fallback_addend;
     while ((expected != 0) && (!invocationCounter.compare_exchange_strong(expected, expected - addend)))
-        addend = (expected & 0xffffffff00000000ull) ? 0x0000000100000000ull : 0x0000000000000001ull;
-    return expected ? (1 + (addend > 0x00000000ffffffffull)) : 0;
-}
-
-
-//=============================================================================
-template <maniscalco::system::work_contract_mode T>
-inline std::int64_t maniscalco::system::work_contract_group<T>::decrement_contract_count_left_preference
-(
-    std::int64_t parent
-)
-{  
-    auto & invocationCounter = invocationCounter_[parent].u64_;
-    auto expected = invocationCounter.load();
-    auto addend = (expected & 0x00000000ffffffffull) ? 0x0000000000000001ull : 0x0000000100000000ull;
-    while ((expected != 0) && (!invocationCounter.compare_exchange_strong(expected, expected - addend)))
-        addend = (expected & 0x00000000ffffffffull) ? 0x0000000000000001ull : 0x0000000100000000ull;
-    return expected ? (1 + (addend > 0x00000000ffffffffull)) : 0;
+        addend = (expected & mask) ? prefered_addend : fallback_addend;
+    return expected ? (1 + (addend > left_mask)) : 0;
 }
 
 
@@ -408,16 +426,17 @@ inline void maniscalco::system::work_contract_group<T>::process_contract
         contract.work_();
         if (((flags -= contract::execute_flag) & contract::invoke_flag) == contract::invoke_flag)
             increment_contract_count(contractId);
-        return;
     }
-
-    if (contract.surrender_)
-        std::exchange(contract.surrender_, nullptr)();
-    std::lock_guard lockGuard(mutex_);
-    flags = nextAvail_.load();
-    nextAvail_ = contractId;
-    contract.work_ = nullptr;
-    surrenderToken_[contractId] = {};
+    else
+    {
+        if (contract.surrender_)
+            std::exchange(contract.surrender_, nullptr)();
+        std::lock_guard lockGuard(mutex_);
+        flags = nextAvail_.load();
+        nextAvail_ = contractId;
+        contract.work_ = nullptr;
+        surrenderToken_[contractId] = {};
+    }
 }
 
 
